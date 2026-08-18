@@ -45,6 +45,7 @@ import helium314.keyboard.latin.define.DebugFlags
 import helium314.keyboard.latin.settings.DebugSettings
 import helium314.keyboard.latin.settings.Defaults
 import helium314.keyboard.latin.settings.Settings
+import helium314.keyboard.polyboard.PairChipDrawable
 import helium314.keyboard.latin.utils.ToolbarKey
 import helium314.keyboard.latin.utils.ToolbarMode
 import helium314.keyboard.latin.utils.addPinnedKey
@@ -497,6 +498,39 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
             if (parent is ViewGroup) {
                 parent.removeView(debugInfoView)
             }
+        }
+    }
+
+    // ---- PolyBoard ----
+
+    /**
+     * Greys out and disables the translate key when the field is sensitive (spec 6.1).
+     * `isEnabled = false` also stops the click reaching [onClick], so the gate cannot be defeated by
+     * a tap landing before the visual update.
+     */
+    fun setTranslateKeyEnabled(enabled: Boolean) {
+        for (group in listOf(toolbar, pinnedKeys)) {
+            group.findViewWithTag<View>(ToolbarKey.TRANSLATE)?.let {
+                it.isEnabled = enabled
+                it.alpha = if (enabled) 1f else 0.35f
+            }
+        }
+    }
+
+    /**
+     * Sets the language pair chip's label, e.g. "EN → FR".
+     *
+     * The chip is an ordinary toolbar `ImageButton`, so the text is rendered into a [PairChipDrawable]
+     * rather than requiring a different view type. That keeps it reorderable, pinnable and removable
+     * through upstream's existing toolbar customisation with no changes to that code.
+     */
+    fun setTranslatePairLabel(label: String) {
+        val color = Settings.getValues().mColors.get(ColorType.KEY_TEXT)
+        val textSize = resources.displayMetrics.density * 11f
+        for (group in listOf(toolbar, pinnedKeys)) {
+            (group.findViewWithTag<View>(ToolbarKey.TRANSLATE_PAIR) as? ImageButton)?.setImageDrawable(
+                PairChipDrawable(label, color, textSize)
+            )
         }
     }
 

@@ -63,3 +63,36 @@ The two `FileProvider`/`ContentProvider` authorities had to be renamed too. They
 hardcoded string resources (`clipboard_provider_authority`, `gesture_data_provider_authority`)
 rather than `${applicationId}`-derived, so without that change installing this fork
 alongside real HeliBoard fails with `INSTALL_FAILED_CONFLICTING_PROVIDER`.
+
+## 2026-08-18 — Source language comes from the keyboard subtype, not the pair store
+
+`LanguagePairStore` stores only the **target** per package. The source is whatever the active
+keyboard subtype is.
+
+Rationale: HeliBoard already persists the subtype per app (`Settings.saveSubtypeForApp`), so storing
+a source alongside it would create two sources of truth that can disagree. It also gives a nice
+property for free: switching keyboard language switches the translation source.
+
+Consequence for the chip's "tap swaps direction": a true swap changes the *source*, so it has to
+switch subtype. `onTranslatePairKey` does that when an enabled subtype exists for the current target,
+and otherwise falls back to cycling the target. Without the fallback the chip would silently do
+nothing for anyone who has only one keyboard language enabled.
+
+## 2026-08-18 — The field is written only after a successful translation
+
+Spec section 8 requires that a timeout "restore the pre-translation state". Rather than snapshot and
+roll back, `TranslationController` reads, translates, and only then performs the atomic replace. A
+timeout, engine failure or cancellation therefore leaves the field byte-for-byte untouched, because
+nothing was written. There is no half-edited state to recover from, by construction.
+
+This is also why undo needs only one stored snapshot rather than a journal.
+
+## 2026-08-18 — `isReturnDefaultValues` enabled for unit tests
+
+`android.util.Log` throws "not mocked" in plain JVM unit tests, and `TranslationController` logs on
+its normal success path. Without `testOptions.unitTests.isReturnDefaultValues = true`, every
+controller test failed inside the `catch (Throwable)` that exists to keep translation failures
+visible — reporting a translation failure rather than a logging failure, which was thoroughly
+misleading.
+
+Verified not to affect upstream's own tests: `./gradlew testRunTestsUnitTest` passes.

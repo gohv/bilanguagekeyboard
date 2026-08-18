@@ -864,6 +864,14 @@ public final class InputLogic {
             case KeyCode.TIMESTAMP:
                 mLatinIME.onTextInput(TimestampKt.getTimestamp(mLatinIME));
                 break;
+            // PolyBoard. Explicit breaks: the SEND_INTENT arm below is missing one upstream and
+            // falls through into IME_HIDE_UI, which is not a pattern to copy.
+            case KeyCode.TRANSLATE:
+                mLatinIME.onTranslateKey();
+                break;
+            case KeyCode.TRANSLATE_PAIR:
+                mLatinIME.onTranslatePairKey();
+                break;
             case KeyCode.EMOJI_SEARCH:
                 commitTyped(sv, LastComposedWord.NOT_A_SEPARATOR);
                 mLatinIME.launchEmojiSearch();

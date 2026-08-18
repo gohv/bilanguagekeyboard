@@ -1,0 +1,13 @@
+<!--
+    icon available in Android Studio (Material "swap_horiz")
+    Fallback only: at runtime the language pair chip replaces this with rendered text (PairChipDrawable).
+    SPDX-License-Identifier: Apache-2.0
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportHeight="24"
+    android:viewportWidth="24" >
+    <path android:fillColor="#FFF"
+        android:pathData="M6.99,11L3,15l3.99,4v-3L14,16l0,-2 -7.01,0L6.99,11zM21,9l-3.99,-4v3L10,8l0,2 7.01,0l0,3L21,9z"/>
+</vector>

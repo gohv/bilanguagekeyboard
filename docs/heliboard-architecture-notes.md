@@ -180,8 +180,13 @@ Entry points for the gate: `LatinIME.onStartInputView` (line 787) →
 
 - `LatinIME.onDestroy` (line 694) — `engine.close()` goes here. Upstream already chains
   `onDestroy` into its managers, so follow that pattern.
-- `onTrimMemory` — **not currently overridden in `LatinIME`.** Section 8 requires it, so it
-  has to be added.
+- `onTrimMemory` — **already overridden** in `LatinIME` (around line 1868), switching on
+  `TRIM_MEMORY_RUNNING_LOW / RUNNING_CRITICAL / COMPLETE` and calling
+  `mKeyboardSwitcher.trimMemory()`. Add the engine release to that existing arm rather than
+  adding an override.
+
+  > Correction: an earlier revision of this document claimed `onTrimMemory` was not
+  > overridden. That was wrong — the grep that produced the claim was truncated by `head`.
 - `App` (`helium314.keyboard.latin.App`) is the `Application` subclass, an alternative home
   for `onTrimMemory`.
 
@@ -195,3 +200,39 @@ model management is built.
 Confirmed as spec section 2.3 says: gesture typing needs a closed-source library that is not
 bundled, and there is a whole `runTests` / `nouserlib` build-variant structure around user-
 provided libraries. Its absence is not a bug and not ours to fix.
+
+## 9. Things learned while wiring phase 2 in
+
+Recorded here because each one cost a build-install-test cycle.
+
+**The three icon maps make new toolbar keys fail loudly, which is good.** `KeyboardIconsSet` builds
+`keyboardIconsHolo`, `keyboardIconsMaterial` and `keyboardIconsRounded` with an exhaustive
+`when (it)` over `ToolbarKey.entries`. Adding an enum entry breaks compilation in all three until an
+icon is supplied, so a new key cannot silently ship as a blank button.
+
+**New toolbar keys arrive disabled for existing users.** `upgradeToolbarPref` appends any missing key
+as `<KEY>,false`, so adding an entry to `defaultToolbarPref` only affects installs whose toolbar pref
+does not exist yet. Anyone with a pre-existing pref has to enable the key by hand in toolbar
+customisation. Worth remembering before concluding the key "doesn't show up".
+
+**Text in a toolbar key needs a Drawable, not a different view.** `createToolbarKey` always returns an
+`ImageButton`. Rendering the language pair label into a `Drawable` (`PairChipDrawable`) keeps the chip
+inside upstream's toolbar plumbing — reorderable, pinnable, removable — with no changes to it.
+
+**`setExternalSuggestionView` adds the view with default layout params.** They resolve to
+`WRAP_CONTENT`, so a status row hugs the top of the strip instead of centring. Set
+`MATCH_PARENT × MATCH_PARENT` on the root explicitly.
+
+**Do not reuse `clipboard_suggestion_background` for a small button.** It is a white rounded rect with
+5dp insets on every side; at the height of a single strip row the insets collapse it into a thin
+sliver that draws straight through the label and reads as a strikethrough.
+
+**An expanded toolbar covers the external suggestion view.** `setExternalSuggestionView` only calls
+`setToolbarVisibility(false)` when the user has "auto hide toolbar" enabled. Anything that must be
+seen right after a toolbar key press has to collapse the toolbar itself.
+
+**`onTrimMemory` exists; `mIC` and the 1024-char cap are the real traps.** See section 2.
+
+**Never `adb shell am force-stop` an IME.** The system deselects it and falls back to the previous
+keyboard, which looks exactly like "my build broke the keyboard". To restart the IME process while
+keeping it selected, `run-as <pkg> kill <pid>` instead.

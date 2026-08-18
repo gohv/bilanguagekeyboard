@@ -69,6 +69,17 @@ import helium314.keyboard.latin.settings.SettingsValues;
 import helium314.keyboard.latin.suggestions.SuggestionStripView;
 import helium314.keyboard.latin.suggestions.SuggestionStripViewAccessor;
 import helium314.keyboard.latin.touchinputconsumer.GestureConsumer;
+import helium314.keyboard.latin.utils.SubtypeUtilsKt;
+import helium314.keyboard.polyboard.FieldGate;
+import helium314.keyboard.polyboard.FieldIo;
+import helium314.keyboard.polyboard.LanguagePairStore;
+import helium314.keyboard.polyboard.PairChipDrawable;
+import helium314.keyboard.polyboard.RichInputConnectionFieldIo;
+import helium314.keyboard.polyboard.TranslateStatusView;
+import helium314.keyboard.polyboard.TranslateUiState;
+import helium314.keyboard.polyboard.TranslationController;
+import helium314.keyboard.polyboard.engine.StubEngine;
+import helium314.keyboard.polyboard.engine.StubLanguageIdentifier;
 import helium314.keyboard.polyboard.FieldDebugView;
 import helium314.keyboard.polyboard.FieldInfo;
 import helium314.keyboard.polyboard.PolyLog;
@@ -143,6 +154,11 @@ public class LatinIME extends InputMethodService implements
     private View mInputView;
     private InsetsOutlineProvider mInsetsUpdater;
     private SuggestionStripView mSuggestionStripView;
+
+    // PolyBoard. The controller is cheap to construct; the engine inside it is created lazily on
+    // first translate so keyboard render is never blocked (spec section 8).
+    private TranslationController mTranslationController;
+    private LanguagePairStore mLanguagePairStore;
 
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
@@ -584,6 +600,8 @@ public class LatinIME extends InputMethodService implements
         registerReceiver(mRestartAfterDeviceUnlockReceiver, restartAfterUnlockFilter);
 
         StatsUtils.onCreate(mSettings.getCurrent(), mRichImm);
+        initPolyBoard(); // PolyBoard: cheap; the engine itself stays lazy
+
     }
 
     private void loadSettings() {
@@ -695,6 +713,8 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onDestroy() {
+        // PolyBoard: engines hold native resources and leak if not closed
+        if (mTranslationController != null) mTranslationController.close();
         mClipboardHistoryManager.onDestroy();
         mDictionaryFacilitator.closeDictionaries();
         mSettings.onDestroy();
@@ -1004,6 +1024,7 @@ public class LatinIME extends InputMethodService implements
         // optional debug overlay. Placed last so the overlay is not immediately overwritten by
         // setNeutralSuggestionStrip() above. Metadata only, never field contents.
         showPolyFieldInfo(editorInfo);
+        onPolyStartInputView(editorInfo);
 
         if (TRACE) Debug.startMethodTracing("/data/trace/latinime");
     }
@@ -1013,6 +1034,119 @@ public class LatinIME extends InputMethodService implements
         PolyLog.i(FieldInfo.describe(editorInfo));
         if (hasSuggestionStripView() && FieldDebugView.isEnabled(this)) {
             mSuggestionStripView.setExternalSuggestionView(FieldDebugView.create(this, editorInfo), false);
+        }
+    }
+
+    // ---------------- PolyBoard translation (phase 2) ----------------
+
+    /**
+     * Constructs the controller. Deliberately does NOT touch the engine: the engine is created on
+     * first translate request so that showing the keyboard is never blocked on model load
+     * (spec section 8).
+     */
+    private void initPolyBoard() {
+        mLanguagePairStore = new LanguagePairStore(this);
+        mTranslationController = new TranslationController(
+                () -> new StubEngine(),
+                () -> new StubLanguageIdentifier(),
+                TranslationController.Companion.newMainScope(),
+                kotlinx.coroutines.Dispatchers.getDefault(),
+                TranslationController.TRANSLATE_TIMEOUT_MS);
+        mTranslationController.setStateListener(this::onPolyStateChanged);
+    }
+
+    /** Applies the 6.1 gate and refreshes the toolbar for a newly opened field. */
+    private void onPolyStartInputView(final EditorInfo editorInfo) {
+        if (mTranslationController == null) return;
+        final FieldGate.Verdict verdict = FieldGate.verdict(editorInfo);
+        mTranslationController.onFieldChanged(verdict);
+        final boolean allowed = verdict instanceof FieldGate.Verdict.Allowed;
+        if (!allowed) {
+            PolyLog.i("translation disabled: " + ((FieldGate.Verdict.Blocked) verdict).getReason());
+        }
+        if (hasSuggestionStripView()) {
+            mSuggestionStripView.setTranslateKeyEnabled(allowed);
+            mSuggestionStripView.setTranslatePairLabel(
+                    PairChipDrawable.Companion.label(polySourceLanguage(), polyTargetLanguage()));
+        }
+    }
+
+    /** Language being typed: the active subtype. See LanguagePairStore for why source is not stored. */
+    private String polySourceLanguage() {
+        return TranslationController.Companion.languageOf(mRichImm.getCurrentSubtypeLocale());
+    }
+
+    private String polyTargetLanguage() {
+        final EditorInfo editorInfo = getCurrentInputEditorInfo();
+        final String pkg = editorInfo == null ? null : editorInfo.packageName;
+        return mLanguagePairStore.effectiveTarget(pkg, polySourceLanguage(), StubEngine.STUB_LANGUAGES);
+    }
+
+    private FieldIo polyFieldIo() {
+        return new RichInputConnectionFieldIo(mInputLogic.mConnection);
+    }
+
+    /** Toolbar translate key: Mode 1, commit-time translation. */
+    public void onTranslateKey() {
+        if (mTranslationController == null) return;
+        mTranslationController.translateNow(polyFieldIo(), polySourceLanguage(), polyTargetLanguage());
+    }
+
+    /**
+     * Toolbar language chip: swap direction.
+     *
+     * A true swap means the *source* changes, and the source is the active keyboard subtype, so this
+     * switches subtype when the user has one enabled for the current target. When they do not, there
+     * is nothing to swap to, so it cycles the target instead rather than doing nothing.
+     */
+    public void onTranslatePairKey() {
+        if (mTranslationController == null) return;
+        final EditorInfo editorInfo = getCurrentInputEditorInfo();
+        final String pkg = editorInfo == null ? null : editorInfo.packageName;
+        final String source = polySourceLanguage();
+        final String target = polyTargetLanguage();
+
+        final InputMethodSubtype subtypeForTarget =
+                mRichImm.findSubtypeForHintLocale(new Locale(target));
+        if (subtypeForTarget != null
+                && !TranslationController.Companion.languageOf(
+                        SubtypeUtilsKt.locale(subtypeForTarget)).equals(source)) {
+            // real direction swap: type in the old target, translate into the old source
+            mLanguagePairStore.setTargetFor(pkg, source);
+            PolyLog.i("pair swapped: " + source + "->" + target + " becomes " + target + "->" + source);
+            switchToSubtype(subtypeForTarget);
+            return;
+        }
+
+        // no enabled subtype for the target, so cycle the target instead
+        final java.util.List<String> supported = StubEngine.STUB_LANGUAGES;
+        int index = supported.indexOf(target);
+        for (int i = 1; i <= supported.size(); i++) {
+            final String candidate = supported.get((index + i + supported.size()) % supported.size());
+            if (!candidate.equals(source)) {
+                mLanguagePairStore.setTargetFor(pkg, candidate);
+                break;
+            }
+        }
+        if (hasSuggestionStripView()) {
+            mSuggestionStripView.setTranslatePairLabel(
+                    PairChipDrawable.Companion.label(polySourceLanguage(), polyTargetLanguage()));
+        }
+    }
+
+    /** Reflects controller state in the candidates strip. */
+    private void onPolyStateChanged(final TranslateUiState state) {
+        if (!hasSuggestionStripView()) return;
+        final View view = TranslateStatusView.INSTANCE.forState(this, state, () -> {
+            mTranslationController.undoLast(polyFieldIo());
+            return Unit.INSTANCE;
+        });
+        if (view != null) {
+            mSuggestionStripView.setExternalSuggestionView(view, false);
+            // Collapse the toolbar, or an expanded toolbar sits on top of the status row and the undo
+            // affordance is invisible. setExternalSuggestionView only auto-hides it when the user has
+            // "auto hide toolbar" enabled, which most people do not.
+            mSuggestionStripView.setToolbarVisibility(false);
         }
     }
 
@@ -1871,6 +2005,9 @@ public class LatinIME extends InputMethodService implements
             case TRIM_MEMORY_RUNNING_LOW, TRIM_MEMORY_RUNNING_CRITICAL, TRIM_MEMORY_COMPLETE -> {
                 KeyboardLayoutSet.Companion.onSystemLocaleChanged(); // clears caches, nothing else
                 mKeyboardSwitcher.trimMemory();
+                // PolyBoard (spec section 8): release the engine's native resources. It is
+                // re-created on the next translate; a dropped model beats a killed process.
+                if (mTranslationController != null) mTranslationController.close();
             }
             // deallocateMemory always called on hiding, and should not be called when showing
         }

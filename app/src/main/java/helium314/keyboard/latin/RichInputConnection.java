@@ -595,6 +595,59 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         if (DEBUG_PREVIOUS_TEXT) checkConsistencyForDebug();
     }
 
+    // ---- PolyBoard additions ----
+
+    /**
+     * PolyBoard: delete around the cursor in both directions, which upstream has no wrapper for
+     * (only {@link #deleteTextBeforeCursor(int)}).
+     *
+     * <p>Implemented as two calls rather than one {@code deleteSurroundingText(before, after)} on
+     * purpose. Deleting after the cursor moves nothing before it, so it needs no cache adjustment,
+     * while the before-cursor half is delegated to {@link #deleteTextBeforeCursor(int)} which already
+     * maintains {@code mCommittedTextBeforeComposingText}, {@code mComposingText} and the expected
+     * selection correctly. Hand-rolling those updates again here is how the cursor bookkeeping gets
+     * silently desynced.
+     *
+     * <p>Callers must wrap this in {@link #beginBatchEdit()} / {@link #endBatchEdit()}, which makes
+     * the pair atomic from the target app's point of view, and must have finished any composing text
+     * first.
+     */
+    public void deleteSurroundingText(final int beforeLength, final int afterLength) {
+        if (afterLength > 0 && isConnected()) {
+            // does not move the cursor, so no expected-selection update is needed
+            mIC.deleteSurroundingText(0, afterLength);
+        }
+        if (beforeLength > 0) {
+            deleteTextBeforeCursor(beforeLength);
+        }
+    }
+
+    /**
+     * PolyBoard: the complete field contents, not the {@link Constants#EDITOR_CONTENTS_CACHE_SIZE}
+     * window that {@link #getTextBeforeCursor(int, int)} is limited to.
+     *
+     * <p>This matters because that cap is 1024 characters and translation has to handle longer
+     * fields. Truncation here does not throw: it would silently translate part of a message and then
+     * compute an atomic replace from the wrong length, which is the worst failure mode available to
+     * this feature. So read through {@code getExtractedText} instead and accept that some apps return
+     * null for it, in which case the caller must refuse to translate rather than guess.
+     *
+     * @return null when unavailable; callers must not fall back to the cached window.
+     */
+    @Nullable public ExtractedText getFullFieldText() {
+        mIC = mParent.getCurrentInputConnection();
+        if (!isConnected()) return null;
+        try {
+            return mIC.getExtractedText(new ExtractedTextRequest(), 0);
+        } catch (Exception e) {
+            // some InputConnection implementations in the wild throw here
+            Log.e(TAG, "getExtractedText failed", e);
+            return null;
+        }
+    }
+
+    // ---- end PolyBoard additions ----
+
     public void performEditorAction(final int actionId) {
         mIC = mParent.getCurrentInputConnection();
         if (isConnected()) {

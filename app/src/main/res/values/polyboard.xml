@@ -1,6 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- PolyBoard additions. Debug-only strings are not translatable. -->
+    <!--
+        PolyBoard additions. All translatable="false": upstream ships ~100 locales and the app is
+        built with lint.abortOnError=true, so a translatable string without translations fails the
+        build on MissingTranslation. Revisit if this fork is ever actually distributed.
+    -->
+
+    <!-- toolbar key content descriptions. Names must match ToolbarKey entry names, lowercased. -->
+    <string name="translate" translatable="false">Translate</string>
+    <string name="translate_pair" translatable="false">Translation language pair</string>
+
+    <!-- candidates strip states -->
+    <string name="poly_undo" translatable="false">Undo</string>
+    <string name="poly_translated" translatable="false">Translated %1$s → %2$s</string>
+    <string name="poly_already_in" translatable="false">Already in %1$s</string>
+    <string name="poly_preparing" translatable="false">Preparing translation…</string>
+    <string name="poly_working" translatable="false">Translating…</string>
+
+    <!-- debug -->
     <string name="prefs_poly_field_overlay" translatable="false">Show field type in suggestion strip</string>
     <string name="prefs_poly_field_overlay_summary" translatable="false">PolyBoard: shows package name, decoded inputType and imeOptions when a field is opened</string>
 </resources>

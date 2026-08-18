@@ -193,6 +193,10 @@ object KeyCode {
     const val SEND_INTENT_TWO =            -20001
     const val SEND_INTENT_THREE =          -20002
 
+    // PolyBoard. Deliberately far below upstream's ranges (last used: -20002) so rebases do not collide.
+    const val TRANSLATE =                 -30000
+    const val TRANSLATE_PAIR =            -30001
+
     /** to make sure a FlorisBoard code works when reading a JSON layout */
     fun Int.checkAndConvertCode(longPress: Boolean = false): Int = if (this > 0) this else when (this) {
         // working
@@ -212,6 +216,9 @@ object KeyCode {
         TIMESTAMP, CTRL_LEFT, CTRL_RIGHT, ALT_LEFT, ALT_RIGHT, META_LEFT, META_RIGHT, SEND_INTENT_ONE, SEND_INTENT_TWO,
         SEND_INTENT_THREE, EMOJI_SEARCH, INLINE_EMOJI_SEARCH_DONE, META_LOCK,
         BACKGROUND_GATHERING, BACKGROUND_GATHERING_TEMP_OFF, DPAD,
+
+        // polyboard only
+        TRANSLATE, TRANSLATE_PAIR,
         -> this
 
         KEY_REPEAT if (longPress) -> this

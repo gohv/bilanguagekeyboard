@@ -96,6 +96,10 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // PolyBoard: android.util.Log throws "not mocked" in plain JVM tests, and PolyBoard's
+            // controller logs on its normal path, so without this every non-Robolectric test that
+            // touches logging fails for the wrong reason.
+            isReturnDefaultValues = true
         }
     }
 
