@@ -872,6 +872,9 @@ public final class InputLogic {
             case KeyCode.TRANSLATE_PAIR:
                 mLatinIME.onTranslatePairKey();
                 break;
+            case KeyCode.TRANSLATE_PICKER:
+                mLatinIME.onTranslatePickerKey();
+                break;
             case KeyCode.EMOJI_SEARCH:
                 commitTyped(sv, LastComposedWord.NOT_A_SEPARATOR);
                 mLatinIME.launchEmojiSearch();

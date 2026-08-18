@@ -8,6 +8,16 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+        PolyBoard: the only network permission, and it exists for exactly one purpose: downloading
+        translation models once per language, on explicit request. No typed text is ever sent
+        anywhere; translation inference runs on this device. The download is logged under the
+        PolyBoard tag so the claim is auditable, and the first-run disclosure states it plainly.
+        Spec section 3 Option A; removing this again is the goal of the optional phase 7.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -26,6 +36,12 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
             android:localeConfig="@xml/locales_config"
             tools:remove="android:appComponentFactory"
             tools:targetApi="33">
+
+        <!-- PolyBoard: first-run disclosure + translation model management -->
+        <activity android:name="helium314.keyboard.polyboard.PolyTranslationActivity"
+                android:label="@string/poly_models_title"
+                android:theme="@style/platformActivityTheme"
+                android:exported="false" />
 
         <!-- Services -->
         <service android:name="LatinIME"

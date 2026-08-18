@@ -245,6 +245,112 @@ class TranslationControllerTest {
         assertTrue(!c.canUndo)
     }
 
+    // ---- Mode 2 live preview ----
+
+    @Test fun `preview never writes to the field`() = runBlocking {
+        val io = FakeFieldIo("hello")
+        val c = controller().also { allow(it) }
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(200)
+        assertEquals("spec rule 5: partial translations must never reach the field", "hello", io.text)
+        assertTrue(io.replaceLog.isEmpty())
+        assertTrue("state was ${c.state.value}", c.state.value is TranslateUiState.Preview)
+        assertEquals("[FR]HELLO", (c.state.value as TranslateUiState.Preview).translated)
+    }
+
+    @Test fun `tapping the preview commits it via the same atomic replace`() = runBlocking {
+        val io = FakeFieldIo("hello")
+        val c = controller().also { allow(it) }
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(200)
+        c.commitPreview(io)
+        assertEquals("[FR]HELLO", io.text)
+        val (before, after, _) = io.replaceLog.single()
+        assertEquals(5, before)
+        assertEquals(0, after)
+        assertTrue(c.state.value is TranslateUiState.Committed)
+    }
+
+    @Test fun `a committed preview is undoable`() = runBlocking {
+        val io = FakeFieldIo("hello")
+        val c = controller().also { allow(it) }
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(200)
+        c.commitPreview(io)
+        assertTrue(c.canUndo)
+        c.undoLast(io)
+        assertEquals("hello", io.text)
+    }
+
+    @Test fun `a stale preview is refused rather than overwriting newer text`() = runBlocking {
+        val io = FakeFieldIo("hello")
+        val c = controller().also { allow(it) }
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(200)
+        // user keeps typing after the preview was computed
+        io.text = "hello there"
+        io.selStart = io.text.length
+        io.selEnd = io.text.length
+        c.commitPreview(io)
+        assertEquals("hello there", io.text)
+        assertTrue(io.replaceLog.isEmpty())
+        assertTrue(c.state.value is TranslateUiState.Failed)
+    }
+
+    @Test fun `preview does not run in a blocked field`() = runBlocking {
+        val io = FakeFieldIo("hello")
+        val c = controller()
+        c.onFieldChanged(FieldGate.Verdict.Blocked("TEXT_VARIATION_WEB_PASSWORD"))
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(200)
+        assertTrue(io.replaceLog.isEmpty())
+        assertTrue(c.state.value is TranslateUiState.Disabled)
+    }
+
+    @Test fun `a new keystroke cancels the previous preview so no stale result lands`() = runBlocking {
+        val io = FakeFieldIo("hello")
+        val c = controller(engine = StubEngine(latencyMs = 300)).also { allow(it) }
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(50)
+        io.text = "hello world"
+        io.selEnd = io.text.length
+        io.selStart = io.selEnd
+        c.onTextChanged(io, "en", "fr", immediate = true) // cancels the first
+        delay(600)
+        val preview = c.state.value
+        assertTrue("state was $preview", preview is TranslateUiState.Preview)
+        assertEquals("[FR]HELLO WORLD", (preview as TranslateUiState.Preview).translated)
+    }
+
+    @Test fun `opening a new field discards a pending preview`() = runBlocking {
+        val io = FakeFieldIo("hello")
+        val c = controller().also { allow(it) }
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(200)
+        assertTrue(c.state.value is TranslateUiState.Preview)
+        allow(c) // new field
+        c.commitPreview(io)
+        assertEquals("hello", io.text)
+        assertTrue(io.replaceLog.isEmpty())
+    }
+
+    @Test fun `sentence terminal punctuation is recognised`() {
+        assertTrue(TranslationController.isSentenceTerminal('.'.code))
+        assertTrue(TranslationController.isSentenceTerminal('!'.code))
+        assertTrue(TranslationController.isSentenceTerminal('?'.code))
+        assertTrue(TranslationController.isSentenceTerminal('\u3002'.code)) // CJK full stop
+        assertTrue(!TranslationController.isSentenceTerminal('a'.code))
+        assertTrue(!TranslationController.isSentenceTerminal(','.code))
+    }
+
+    @Test fun `very short text produces no preview`() = runBlocking {
+        val io = FakeFieldIo("h")
+        val c = controller().also { allow(it) }
+        c.onTextChanged(io, "en", "fr", immediate = true)
+        delay(200)
+        assertTrue(c.state.value !is TranslateUiState.Preview)
+    }
+
     // ---- the stub identifier's contract ----
 
     @Test fun `stub identifier reports undetermined for ordinary text`() = runBlocking {

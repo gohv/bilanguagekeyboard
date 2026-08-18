@@ -23,4 +23,19 @@ sealed interface TranslateUiState {
 
     /** 6.2 no-op: the text is already in the target language. */
     data class AlreadyInTarget(val language: String) : TranslateUiState
+
+    /**
+     * Mode 2: a translation is shown for review but is **not** in the field. Tapping commits it.
+     *
+     * Spec rule 5 is absolute: partial translations never reach the target field. Word order differs
+     * between languages so partial output looks broken, and some apps fire send-on-text-change. This
+     * state exists precisely so a preview has somewhere to live that is not the field.
+     */
+    data class Preview(val translated: String, val from: String, val to: String) : TranslateUiState
+
+    /** The chosen pair has no model on disk. Must never silently trigger a download. */
+    data class ModelMissing(val from: String, val to: String) : TranslateUiState
+
+    /** The first-run disclosure has not been accepted, so nothing runs yet. */
+    data object NeedsDisclosure : TranslateUiState
 }

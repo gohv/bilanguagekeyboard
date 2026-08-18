@@ -151,6 +151,12 @@ dependencies {
     implementation("sh.calvin.reorderable:reorderable:3.1.0") // for easier re-ordering
     implementation("com.github.skydoves:colorpicker-compose:1.1.3") // for user-defined colors
 
+    // PolyBoard: on-device translation (spec section 3, Option A).
+    // These run inference locally. The only network use is the one-time model download, which is
+    // why INTERNET appears in the manifest. See README and DECISIONS.md.
+    implementation("com.google.mlkit:translate:17.0.3")
+    implementation("com.google.mlkit:language-id:17.0.6")
+
     // test
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")

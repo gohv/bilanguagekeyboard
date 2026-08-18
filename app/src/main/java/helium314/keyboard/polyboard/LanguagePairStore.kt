@@ -39,16 +39,35 @@ class LanguagePairStore(private val context: Context) {
     }
 
     /**
-     * Target to use for [packageName], falling back to the system locale per spec 7, and then to
-     * English. [sourceLanguage] is passed so we never hand back a pair that translates a language
-     * into itself: if the system locale equals the source, pick any other supported language.
+     * Target to use for [packageName].
+     *
+     * Order: the stored choice for this app, then the system locale (spec section 7), then the
+     * languages the user has actually enabled as keyboard layouts, then anything at all.
+     *
+     * [preferred] exists because of a real bug found on device: with ML Kit's full 58-language list
+     * and an English keyboard on an English-locale phone, both of the first two rules are skipped
+     * (the system locale *is* the source), and "anything at all" meant the alphabetically first
+     * language — so the default pair came out as EN to Afrikaans. The user's own enabled keyboard
+     * languages are a far better guess at which languages they actually speak.
      */
-    fun effectiveTarget(packageName: String?, sourceLanguage: String, supported: List<String>): String {
+    fun effectiveTarget(
+        packageName: String?,
+        sourceLanguage: String,
+        supported: List<String>,
+        preferred: List<String> = emptyList(),
+    ): String {
         targetFor(packageName)?.let { if (it in supported) return it }
 
         val systemLocale = Locale.getDefault().language.lowercase(Locale.ROOT)
         if (systemLocale in supported && systemLocale != sourceLanguage) return systemLocale
 
+        preferred.forEach { candidate ->
+            val tag = candidate.lowercase(Locale.ROOT)
+            if (tag in supported && tag != sourceLanguage) return tag
+        }
+
+        // Last resort, and genuinely arbitrary. The user should pick a pair; this only keeps the chip
+        // from being empty until they do.
         return supported.firstOrNull { it != sourceLanguage } ?: sourceLanguage
     }
 

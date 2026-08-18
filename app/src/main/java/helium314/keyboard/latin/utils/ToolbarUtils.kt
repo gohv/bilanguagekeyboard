@@ -116,7 +116,8 @@ fun getCodeForToolbarKeyLongClick(key: ToolbarKey) = Settings.getInstance().getC
     PAGE_UP -> KeyCode.MOVE_START_OF_PAGE
     PAGE_DOWN -> KeyCode.MOVE_END_OF_PAGE
     BACKGROUND_GATHERING -> KeyCode.BACKGROUND_GATHERING_TEMP_OFF
-    TRANSLATE -> KeyCode.TRANSLATE_PAIR
+    TRANSLATE -> KeyCode.TRANSLATE_PICKER
+    TRANSLATE_PAIR -> KeyCode.TRANSLATE_PICKER
     else -> KeyCode.UNSPECIFIED
 }
 

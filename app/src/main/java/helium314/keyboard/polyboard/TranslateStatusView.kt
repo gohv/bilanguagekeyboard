@@ -30,7 +30,30 @@ import helium314.keyboard.latin.settings.Settings
 object TranslateStatusView {
 
     @SuppressLint("SetTextI18n")
-    fun forState(context: Context, state: TranslateUiState, onUndo: () -> Unit): View? = when (state) {
+    fun forState(
+        context: Context,
+        state: TranslateUiState,
+        onUndo: () -> Unit,
+        onCommitPreview: () -> Unit = {},
+        onOpenSettings: () -> Unit = {},
+    ): View? = when (state) {
+        // Mode 2: the translation is shown here and nowhere else. Tapping commits it.
+        is TranslateUiState.Preview ->
+            previewRow(context, state.translated, onCommitPreview)
+        is TranslateUiState.ModelMissing ->
+            row(
+                context,
+                context.getString(
+                    R.string.poly_model_missing,
+                    state.from.uppercase(),
+                    state.to.uppercase()
+                ),
+                null,
+                isError = true,
+                onWholeRowClick = onOpenSettings,
+            )
+        TranslateUiState.NeedsDisclosure ->
+            row(context, context.getString(R.string.poly_needs_disclosure), null, onWholeRowClick = onOpenSettings)
         is TranslateUiState.Committed ->
             row(context, context.getString(R.string.poly_translated, state.from.uppercase(), state.to.uppercase()), onUndo)
         is TranslateUiState.AlreadyInTarget ->
@@ -45,7 +68,59 @@ object TranslateStatusView {
         else -> null
     }
 
-    private fun row(context: Context, message: String, onUndo: (() -> Unit)?, isError: Boolean = false): View {
+    /**
+     * The live-preview row. The whole row is the tap target, because the user's intent when they look
+     * at a translation they asked for is "yes, use that", and a small button would be a worse target
+     * on a strip this short.
+     */
+    private fun previewRow(context: Context, translated: String, onCommit: () -> Unit): View {
+        val colors = Settings.getValues().mColors
+        val label = TextView(context).apply {
+            text = translated
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTextColor(colors.get(ColorType.KEY_TEXT))
+            setTypeface(typeface, Typeface.BOLD)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            gravity = Gravity.CENTER_VERTICAL
+            isHapticFeedbackEnabled = false
+            isSoundEffectsEnabled = false
+        }
+        val hint = TextView(context).apply {
+            text = context.getString(R.string.poly_tap_to_use)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            setTextColor(colors.get(ColorType.KEY_TEXT))
+            alpha = 0.6f
+            gravity = Gravity.CENTER
+            setPadding(20, 0, 8, 0)
+        }
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(24, 8, 12, 8)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            addView(
+                hint,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+            setOnClickListener { onCommit() }
+        }
+    }
+
+    private fun row(
+        context: Context,
+        message: String,
+        onUndo: (() -> Unit)?,
+        isError: Boolean = false,
+        onWholeRowClick: (() -> Unit)? = null,
+    ): View {
         val colors = Settings.getValues().mColors
         val textColor = colors.get(if (isError) ColorType.KEY_TEXT else ColorType.KEY_TEXT)
 
@@ -76,6 +151,7 @@ object TranslateStatusView {
                 label,
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             )
+            if (onWholeRowClick != null) setOnClickListener { onWholeRowClick() }
             if (onUndo != null) {
                 val undo = TextView(context).apply {
                     text = context.getString(R.string.poly_undo)

@@ -96,3 +96,46 @@ visible — reporting a translation failure rather than a logging failure, which
 misleading.
 
 Verified not to affect upstream's own tests: `./gradlew testRunTestsUnitTest` passes.
+
+## 2026-08-18 — Phase 3 findings that changed the implementation
+
+**ML Kit reports an English model like any other.** `getDownloadedModels()` listed English as already
+on device, so `isPairReady` checks both endpoints of a pair with no special case for English. Every
+model translates between its language and English, which is why the model screen tells the user to
+keep English.
+
+**ML Kit gives no download progress callback.** `downloadModelIfNeeded` reports only success or
+failure. Spec section 7 asks for progress so the UI is "never a frozen spinner"; since there is no
+honest number to show, the UI shows an indeterminate state and a toast rather than a fabricated
+percentage. `PrepareState.Progress` stays in the interface for the Phase 7 engine, which can report
+real decompression progress.
+
+**Default target language was genuinely broken, and the fix is a hint, not a rule.** With ML Kit's
+58 languages, an English keyboard on an all-English device skipped every informed rule (stored
+choice, system locale, enabled subtypes were all either absent or English) and fell through to
+"first supported language that is not the source" — which is Afrikaans, because `af` sorts first. The
+chip really did read `EN → AF`.
+
+The fix adds the languages the user has actually downloaded a model for as a preference hint, cached
+by the model management screen. That is the strongest signal available: someone who downloads French
+wants French. The arbitrary fallback is still there for a device with no models, where it is harmless
+because translation reports `ModelMissing` and sends the user to the picker anyway.
+
+**Translation is gated on the first-run disclosure, not just documented by it.** `onTranslateKey`
+returns `NeedsDisclosure` until the screen has been accepted, so no model can be fetched and no
+translation can run before the user has read what the INTERNET permission is for.
+
+## 2026-08-18 — Live preview (Mode 2) shipped early, alongside Phase 3
+
+Requested directly, so built now rather than in Phase 5. Behaviour follows spec section 5: 400ms
+debounce, immediate trigger on sentence-terminal punctuation, rendered only in the candidates strip,
+committed by tapping, single cancellable job.
+
+Two things worth knowing:
+
+- **It replaces word suggestions while it is showing.** There is one strip. That means losing
+  autocorrect on the source text you are still writing, which is a real cost, not a detail. Off by
+  default for that reason as much as for the inference cost.
+- **A preview is refused if the field changed after it was computed.** Otherwise tapping a preview
+  that landed just before another keystroke would overwrite newer text with a translation of older
+  text. The controller compares against the snapshot it translated.

@@ -196,6 +196,7 @@ object KeyCode {
     // PolyBoard. Deliberately far below upstream's ranges (last used: -20002) so rebases do not collide.
     const val TRANSLATE =                 -30000
     const val TRANSLATE_PAIR =            -30001
+    const val TRANSLATE_PICKER =          -30002
 
     /** to make sure a FlorisBoard code works when reading a JSON layout */
     fun Int.checkAndConvertCode(longPress: Boolean = false): Int = if (this > 0) this else when (this) {
@@ -218,7 +219,7 @@ object KeyCode {
         BACKGROUND_GATHERING, BACKGROUND_GATHERING_TEMP_OFF, DPAD,
 
         // polyboard only
-        TRANSLATE, TRANSLATE_PAIR,
+        TRANSLATE, TRANSLATE_PAIR, TRANSLATE_PICKER,
         -> this
 
         KEY_REPEAT if (longPress) -> this

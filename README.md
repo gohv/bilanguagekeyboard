@@ -27,23 +27,34 @@ triggered yet. See [DECISIONS.md](DECISIONS.md).
 |---|---|---|
 | `applicationId` | `helium314.keyboard` | `it.hristov.polyboard` |
 | `minSdk` | 21 | 26 |
-| Network | no `INTERNET` permission, 100% offline | `INTERNET` for one-time translation model download |
+| Network | no `INTERNET` permission, 100% offline | `INTERNET` for one-time translation model download (**now present**) |
+| Translation | none | on-device, Google ML Kit, 58 languages |
 
 Installs alongside real HeliBoard; the two do not conflict.
 
 ### On the "100% offline" claim
 
 Upstream's README below says HeliBoard "does not use internet permission, and thus is 100%
-offline." **That is true of upstream and will stop being true of PolyBoard** once the ML Kit
-engine lands in Phase 3. Being straight about this matters more than inheriting a nice
+offline." **That is true of upstream and is no longer true of PolyBoard.** As of Phase 3 this fork
+declares `android.permission.INTERNET`. Being straight about this matters more than inheriting a nice
 claim: a keyboard is the single most sensitive app on a phone, and a keyboard that asks for
 network access is one you have to actively trust about keylogging.
 
-What is accurate for PolyBoard once Phase 3 lands:
+What is accurate for PolyBoard:
 
 - Translation inference runs on this device. Typed text is never sent anywhere.
 - The network is touched for exactly one purpose: downloading translation models, once per
-  language, on request. That download is logged so the claim is auditable.
+  language, on request. That download is logged so the claim is auditable. It looks like this:
+
+  ```
+  PolyBoard: MODEL DOWNLOAD starting for en<->fr (requireWifi=true) - this is the only network use
+  PolyBoard: MODEL DOWNLOAD complete for en<->fr
+  ```
+
+  Verify the rest with `adb logcat -s PolyBoard:V` while typing: translations are logged as
+  lengths and short hashes, never as text.
+- Verified offline: with a model downloaded and the phone in aeroplane mode,
+  "Thank you" translated to "Merci" in 11ms.
 - No analytics, no crash reporting, no ads, no third-party network libraries.
 - Typed text is never written to disk.
 

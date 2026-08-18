@@ -69,6 +69,7 @@ import helium314.keyboard.latin.settings.SettingsValues;
 import helium314.keyboard.latin.suggestions.SuggestionStripView;
 import helium314.keyboard.latin.suggestions.SuggestionStripViewAccessor;
 import helium314.keyboard.latin.touchinputconsumer.GestureConsumer;
+import helium314.keyboard.latin.utils.SubtypeSettings;
 import helium314.keyboard.latin.utils.SubtypeUtilsKt;
 import helium314.keyboard.polyboard.FieldGate;
 import helium314.keyboard.polyboard.FieldIo;
@@ -78,8 +79,9 @@ import helium314.keyboard.polyboard.RichInputConnectionFieldIo;
 import helium314.keyboard.polyboard.TranslateStatusView;
 import helium314.keyboard.polyboard.TranslateUiState;
 import helium314.keyboard.polyboard.TranslationController;
-import helium314.keyboard.polyboard.engine.StubEngine;
-import helium314.keyboard.polyboard.engine.StubLanguageIdentifier;
+import helium314.keyboard.polyboard.EngineFactory;
+import helium314.keyboard.polyboard.PolyPrefs;
+import helium314.keyboard.polyboard.PolyTranslationActivity;
 import helium314.keyboard.polyboard.FieldDebugView;
 import helium314.keyboard.polyboard.FieldInfo;
 import helium314.keyboard.polyboard.PolyLog;
@@ -1047,8 +1049,8 @@ public class LatinIME extends InputMethodService implements
     private void initPolyBoard() {
         mLanguagePairStore = new LanguagePairStore(this);
         mTranslationController = new TranslationController(
-                () -> new StubEngine(),
-                () -> new StubLanguageIdentifier(),
+                () -> EngineFactory.INSTANCE.engine(this),
+                () -> EngineFactory.INSTANCE.identifier(this),
                 TranslationController.Companion.newMainScope(),
                 kotlinx.coroutines.Dispatchers.getDefault(),
                 TranslationController.TRANSLATE_TIMEOUT_MS);
@@ -1079,7 +1081,28 @@ public class LatinIME extends InputMethodService implements
     private String polyTargetLanguage() {
         final EditorInfo editorInfo = getCurrentInputEditorInfo();
         final String pkg = editorInfo == null ? null : editorInfo.packageName;
-        return mLanguagePairStore.effectiveTarget(pkg, polySourceLanguage(), StubEngine.STUB_LANGUAGES);
+        return mLanguagePairStore.effectiveTarget(pkg, polySourceLanguage(),
+                EngineFactory.INSTANCE.supportedLanguages(this), polyEnabledLanguages());
+    }
+
+    /**
+     * Candidate target languages, best guess first: the keyboard layouts the user enabled, then the
+     * languages they deliberately downloaded a model for.
+     *
+     * The downloaded-model hint matters more than it sounds. On an English keyboard on an
+     * all-English device every other signal is the source language itself, and without this the
+     * default pair came out as EN to Afrikaans purely because "af" sorts first.
+     */
+    private java.util.List<String> polyEnabledLanguages() {
+        final java.util.List<String> out = new java.util.ArrayList<>();
+        for (InputMethodSubtype subtype : SubtypeSettings.INSTANCE.getEnabledSubtypes(true)) {
+            final String lang = TranslationController.Companion.languageOf(SubtypeUtilsKt.locale(subtype));
+            if (!out.contains(lang)) out.add(lang);
+        }
+        for (String lang : PolyPrefs.INSTANCE.knownModelLanguages(this)) {
+            if (!out.contains(lang)) out.add(lang);
+        }
+        return out;
     }
 
     private FieldIo polyFieldIo() {
@@ -1089,7 +1112,36 @@ public class LatinIME extends InputMethodService implements
     /** Toolbar translate key: Mode 1, commit-time translation. */
     public void onTranslateKey() {
         if (mTranslationController == null) return;
+        // Spec section 7 and 11: nothing runs, and nothing downloads, before the disclosure is read.
+        if (!PolyPrefs.INSTANCE.disclosureAccepted(this)) {
+            onPolyStateChanged(TranslateUiState.NeedsDisclosure.INSTANCE);
+            return;
+        }
         mTranslationController.translateNow(polyFieldIo(), polySourceLanguage(), polyTargetLanguage());
+    }
+
+    /** Long-press on the translate key or the pair chip: the picker / model management screen. */
+    public void onTranslatePickerKey() {
+        final Intent intent = new Intent(this, PolyTranslationActivity.class);
+        // An IME has no task of its own, so a new task is required here.
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+    }
+
+    /**
+     * Mode 2 live preview. Called after every input event; cheap to call, since the controller
+     * debounces and the whole thing is off unless the user opted in.
+     */
+    private void onPolyTextChanged(final Event event) {
+        if (mTranslationController == null) return;
+        if (!PolyPrefs.INSTANCE.livePreview(this)) return;
+        if (!PolyPrefs.INSTANCE.disclosureAccepted(this)) return;
+        final int code = event.getKeyCode();
+        // Our own keys must not drive the preview loop.
+        if (code == KeyCode.TRANSLATE || code == KeyCode.TRANSLATE_PAIR || code == KeyCode.TRANSLATE_PICKER) return;
+        final boolean immediate = TranslationController.Companion.isSentenceTerminal(event.getCodePoint());
+        mTranslationController.onTextChanged(
+                polyFieldIo(), polySourceLanguage(), polyTargetLanguage(), immediate);
     }
 
     /**
@@ -1119,7 +1171,7 @@ public class LatinIME extends InputMethodService implements
         }
 
         // no enabled subtype for the target, so cycle the target instead
-        final java.util.List<String> supported = StubEngine.STUB_LANGUAGES;
+        final java.util.List<String> supported = EngineFactory.INSTANCE.supportedLanguages(this);
         int index = supported.indexOf(target);
         for (int i = 1; i <= supported.size(); i++) {
             final String candidate = supported.get((index + i + supported.size()) % supported.size());
@@ -1137,10 +1189,10 @@ public class LatinIME extends InputMethodService implements
     /** Reflects controller state in the candidates strip. */
     private void onPolyStateChanged(final TranslateUiState state) {
         if (!hasSuggestionStripView()) return;
-        final View view = TranslateStatusView.INSTANCE.forState(this, state, () -> {
-            mTranslationController.undoLast(polyFieldIo());
-            return Unit.INSTANCE;
-        });
+        final View view = TranslateStatusView.INSTANCE.forState(this, state,
+                () -> { mTranslationController.undoLast(polyFieldIo()); return Unit.INSTANCE; },
+                () -> { mTranslationController.commitPreview(polyFieldIo()); return Unit.INSTANCE; },
+                () -> { onTranslatePickerKey(); return Unit.INSTANCE; });
         if (view != null) {
             mSuggestionStripView.setExternalSuggestionView(view, false);
             // Collapse the toolbar, or an expanded toolbar sits on top of the status row and the undo
@@ -1570,6 +1622,7 @@ public class LatinIME extends InputMethodService implements
                         mKeyboardSwitcher.getCurrentKeyboardScript(), mHandler);
         updateStateAfterInputTransaction(completeInputTransaction);
         mKeyboardSwitcher.onEvent(event, getCurrentAutoCapsState(), getCurrentRecapitalizeState());
+        onPolyTextChanged(event); // PolyBoard mode 2; no-op unless live preview is enabled
     }
 
     public void onTextInput(@Nullable String rawText) {

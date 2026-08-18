@@ -5,6 +5,7 @@ import helium314.keyboard.polyboard.engine.LanguageIdentifier
 import helium314.keyboard.polyboard.engine.TranslationEngine
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -54,6 +55,25 @@ class TranslationController(
     private var engine: TranslationEngine? = null
     private var identifier: LanguageIdentifier? = null
     private var inFlight: Job? = null
+    private var previewJob: Job? = null
+
+    /**
+     * The pending Mode 2 preview: the field snapshot it was computed from, and the translation.
+     * The snapshot is kept so [commitPreview] can refuse to commit a translation of text the user has
+     * since changed, which is the difference between a preview and a stale write.
+     */
+    private var preview: PendingPreview? = null
+
+    /** A computed but uncommitted Mode 2 preview. */
+    data class PendingPreview(
+        val snapshot: FieldText,
+        val translated: String,
+        val from: String,
+        val to: String,
+    )
+
+    /** True when translation is allowed to run at all in the current field. */
+    private var enabled = false
 
     /** The one undo step. Cleared once used or once the field is replaced by something else. */
     private var undo: UndoSnapshot? = null
@@ -65,7 +85,11 @@ class TranslationController(
     /** Called when a new field is opened: previous undo no longer refers to anything real. */
     fun onFieldChanged(allowed: FieldGate.Verdict) {
         cancelInFlight()
+        previewJob?.cancel()
+        previewJob = null
+        preview = null
         undo = null
+        enabled = allowed is FieldGate.Verdict.Allowed
         setState(
             when (allowed) {
                 is FieldGate.Verdict.Allowed -> TranslateUiState.Idle
@@ -79,6 +103,102 @@ class TranslationController(
         inFlight = null
     }
 
+    // ---------------- Mode 2: live preview (spec section 5) ----------------
+
+    /**
+     * Called on every text-changing keystroke when live preview is enabled.
+     *
+     * Debounced by [DEBOUNCE_MS], and additionally fired immediately on sentence-terminal punctuation,
+     * because that is the point at which a translation is most likely to be worth showing.
+     *
+     * A single [previewJob] is cancelled and replaced on every call. That is what stops a stale result
+     * landing: not a sequence number or a timestamp check, just the guarantee that at most one preview
+     * computation is alive.
+     */
+    fun onTextChanged(io: FieldIo, source: String, target: String, immediate: Boolean) {
+        if (!enabled) return
+        // Any in-flight commit translation is now about text the user has edited: drop it.
+        cancelInFlight()
+        previewJob?.cancel()
+        preview = null
+        previewJob = mainScope.launch {
+            if (!immediate) delay(DEBOUNCE_MS)
+            try {
+                computePreview(io, source, target)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                PolyLog.e("preview failed", e)
+                setState(TranslateUiState.Idle)
+            }
+        }
+    }
+
+    private suspend fun computePreview(io: FieldIo, source: String, target: String) {
+        if (source.equals(target, ignoreCase = true)) return
+        val snapshot = io.read() ?: return
+        val text = snapshot.text
+        if (text.isBlank() || text.length < MIN_PREVIEW_CHARS) {
+            setState(TranslateUiState.Idle)
+            return
+        }
+
+        val eng = ensureEngine()
+        if (!eng.isPairReady(source, target)) {
+            // Never download because someone typed a letter. Mode 2 stays silent about missing
+            // models; the explicit translate key is where that gets surfaced.
+            return
+        }
+        val ident = ensureIdentifier()
+        val detected = withContext(ioDispatcher) { ident.identify(text) }
+        if (detected != null && detected.equals(target, ignoreCase = true)) {
+            setState(TranslateUiState.Idle)
+            return
+        }
+
+        val result = withTimeoutOrNull(timeoutMs) {
+            withContext(ioDispatcher) { eng.translate(text, source, target) }
+        } ?: return
+        val translated = result.getOrNull() ?: return
+        if (translated == text) return
+
+        preview = PendingPreview(snapshot, translated, source, target)
+        setState(TranslateUiState.Preview(translated, source, target))
+    }
+
+    /**
+     * Commit the previewed translation, using the same atomic replace as Mode 1.
+     *
+     * Refuses if the field no longer matches what was translated. Without that check, tapping a
+     * preview that arrived just before another keystroke would overwrite newer text with a
+     * translation of older text.
+     */
+    fun commitPreview(io: FieldIo) {
+        val pending = preview ?: return
+        previewJob?.cancel()
+        io.finishComposing()
+        val current = io.read()
+        if (current == null) {
+            setState(TranslateUiState.Failed("No text field"))
+            return
+        }
+        if (current.text != pending.snapshot.text) {
+            PolyLog.w("preview rejected: field changed since it was computed")
+            preview = null
+            setState(TranslateUiState.Failed("Text changed, translate again"))
+            return
+        }
+        val ok = io.replace(current.cursor, current.text.length - current.cursor, pending.translated)
+        if (!ok) {
+            setState(TranslateUiState.Failed("Could not update the text field"))
+            return
+        }
+        undo = UndoSnapshot(current, pending.translated)
+        preview = null
+        PolyLog.i("preview committed ${PolyLog.redact(pending.translated)}")
+        setState(TranslateUiState.Committed(pending.from, pending.to))
+    }
+
     /**
      * Mode 1, commit-time translation (spec section 5).
      *
@@ -90,6 +210,8 @@ class TranslationController(
             return
         }
         cancelInFlight()
+        previewJob?.cancel()
+        preview = null
         inFlight = mainScope.launch {
             try {
                 runTranslation(io, source, target)
@@ -137,9 +259,10 @@ class TranslationController(
         val ident = ensureIdentifier()
 
         if (!eng.isPairReady(source, target)) {
-            // Phase 3 will drive preparePair() with progress here. The stub is always ready, so
-            // reaching this with the stub means a real bug, not a missing model.
-            setState(TranslateUiState.Failed("Model not ready for $source to $target"))
+            // Deliberately does NOT start a download. Spec section 11: never download silently. The UI
+            // turns this state into something tappable that opens the model management screen.
+            PolyLog.i("model missing for $source->$target, not downloading without being asked")
+            setState(TranslateUiState.ModelMissing(source, target))
             return
         }
 
@@ -233,6 +356,9 @@ class TranslationController(
     /** Drop native resources. Safe to call repeatedly; the engine is re-created on next use. */
     fun close() {
         cancelInFlight()
+        previewJob?.cancel()
+        previewJob = null
+        preview = null
         engine?.close()
         engine = null
         identifier?.close()
@@ -244,6 +370,17 @@ class TranslationController(
 
     companion object {
         const val TRANSLATE_TIMEOUT_MS = 3_000L
+
+        /** Spec section 8: non-negotiable. Mode 2 is ~10x the inference calls of Mode 1. */
+        const val DEBOUNCE_MS = 400L
+
+        /** Below this, a preview is noise rather than information. */
+        const val MIN_PREVIEW_CHARS = 2
+
+        /** Sentence-terminal punctuation also triggers a preview immediately. */
+        fun isSentenceTerminal(codePoint: Int): Boolean =
+            codePoint == '.'.code || codePoint == '!'.code || codePoint == '?'.code ||
+                codePoint == '\u061F'.code || codePoint == '\u3002'.code // Arabic, CJK full stop
 
         /**
          * Orchestration scope. **Must be main-dispatched**: [stateListener] updates views, and a bare
