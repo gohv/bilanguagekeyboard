@@ -42,6 +42,8 @@
     <string name="poly_unmetered_only" translatable="false">Download models on Wi-Fi only</string>
     <string name="poly_live_preview" translatable="false">Show translation instead of word suggestions</string>
     <string name="poly_live_preview_hint" translatable="false">As you type, the translation appears in the suggestion strip; tap it to replace your text. You lose word suggestions and autocorrect while it is showing, and it runs many more translations than the translate key does.</string>
+    <string name="poly_allow_incognito" translatable="false">Translate in private-keyboard apps (Signal, Molly)</string>
+    <string name="poly_allow_incognito_hint" translatable="false">These apps ask keyboards not to learn from what you type. PolyBoard never saves your text anywhere, so it honours that either way. Turn this off to also stop translating in those apps. Password, email, URL, phone and number fields stay blocked regardless.</string>
     <string name="poly_use_stub" translatable="false">Use the fake test engine</string>
     <string name="poly_stub_active" translatable="false">The fake engine uppercases your text and prefixes the target language. Nothing is translated and no model is used.</string>
     <string name="poly_mlkit_attribution" translatable="false">Translation powered by Google ML Kit, running on this device.</string>

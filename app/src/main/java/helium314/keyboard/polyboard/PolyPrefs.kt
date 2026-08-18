@@ -29,6 +29,20 @@ object PolyPrefs {
     /** Download models on unmetered connections only. Default true, per spec section 7. */
     const val PREF_UNMETERED_ONLY = "poly_unmetered_only"
 
+    /**
+     * Translate in apps that set `IME_FLAG_NO_PERSONALIZED_LEARNING` (Signal, Molly, and other
+     * "incognito keyboard" apps). Default **true**: without it the keyboard is dead in exactly the
+     * apps it is most wanted in. See [FieldGate.INCOGNITO_RATIONALE] for why this is safe to override
+     * while password gating is not.
+     */
+    const val PREF_ALLOW_INCOGNITO_APPS = "poly_allow_incognito_apps"
+
+    fun allowIncognitoApps(context: Context): Boolean =
+        context.prefs().getBoolean(PREF_ALLOW_INCOGNITO_APPS, true)
+
+    fun setAllowIncognitoApps(context: Context, value: Boolean) =
+        context.prefs().edit { putBoolean(PREF_ALLOW_INCOGNITO_APPS, value) }
+
     /** Mode 2 live preview. Default off: roughly ten times the inference calls of Mode 1. */
     const val PREF_LIVE_PREVIEW = "poly_live_preview"
 

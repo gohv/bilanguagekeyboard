@@ -139,3 +139,49 @@ Two things worth knowing:
 - **A preview is refused if the field changed after it was computed.** Otherwise tapping a preview
   that landed just before another keystroke would overwrite newer text with a translation of older
   text. The controller compares against the snapshot it translated.
+
+## 2026-08-18 — Spec 6.1's `IME_FLAG_NO_PERSONALIZED_LEARNING` rule is now user-overridable, default ON
+
+**This deliberately departs from the spec**, so it is written down in full.
+
+Spec 6.1 ends: "Also disable when `IME_FLAG_NO_PERSONALIZED_LEARNING` is set on `imeOptions`. If the
+app is signalling that it does not want its content learned from, do not process it."
+
+Implemented that way, PolyBoard is dead in exactly the apps it is most wanted in. Captured on device:
+
+| App / field | inputType | imeOptions |
+|---|---|---|
+| Molly message box | `0x0002C001` `TEXT/NORMAL +CAP_SENTENCES +AUTO_CORRECT +MULTI_LINE` | `0x41000004` `SEND +NO_PERSONALIZED_LEARNING +NO_ENTER_ACTION` |
+| Molly search | `0x00008001` `TEXT/NORMAL +AUTO_CORRECT` | `0x03000003` `SEARCH +NO_PERSONALIZED_LEARNING +NO_FULLSCREEN` |
+
+Molly's message box is an ordinary multiline text field — byte-identical `inputType` to WhatsApp's —
+and the *only* thing blocking translation was that flag. Signal and its forks set it because they
+offer an "incognito keyboard" option.
+
+**The distinction that makes the override defensible:** the flag asks the keyboard not to *learn*
+from the content — not to fold it into dictionaries, prediction or personalisation. PolyBoard never
+persists typed text at all (6.4: no history, no on-disk cache, and the log carries lengths and short
+hashes rather than text). So the flag's actual request is honoured unconditionally, whether or not
+translation runs. Translating is processing, not learning.
+
+A password field is a different kind of thing: there the *content* is a secret, so translating it
+would move a secret through an engine and into a message box. **No setting unblocks that**, and the
+gate is ordered so the hard content rules are evaluated first — a password field with the flag set
+reports `TEXT_VARIATION_PASSWORD`, not the flag, and stays blocked with the override on. Four unit
+tests pin this down.
+
+Default is **on** (translate in these apps), because the user asked for translation to work in every
+app and named Molly specifically. Turn it off in the translation screen: "Translate in
+private-keyboard apps (Signal, Molly)". Anyone who prefers the strict spec reading flips that one
+switch.
+
+## 2026-08-18 — Fallback field read, so "every app" is closer to true
+
+`getExtractedText` is optional and some `InputConnection` implementations return null. Previously that
+meant `read()` returned null and translation was simply impossible in those apps.
+
+There is now a fallback using the cached before/after-cursor reads. It **refuses** when either side
+comes back at `EDITOR_CONTENTS_CACHE_SIZE` (1024), because at the cap a full read and a truncated one
+are indistinguishable, and translating half a message while computing the replace from the wrong
+length is the worst failure this feature has available. Short messages, which is nearly all of them,
+now work in apps that would previously have failed outright.

@@ -95,6 +95,49 @@ class FieldGateTest {
         assertBlocked(ei, "IME_FLAG_NO_PERSONALIZED_LEARNING")
     }
 
+    // ---- the incognito-keyboard override (Signal / Molly) ----
+
+    @Test fun `molly message box is blocked by default and allowed with the override`() {
+        // real captured value: im.molly.app compose box
+        val molly = info(0x0002C001, 0x41000004)
+        assertBlocked(molly, "IME_FLAG_NO_PERSONALIZED_LEARNING")
+        assertTrue(FieldGate.isAllowed(molly, allowIncognitoApps = true))
+    }
+
+    @Test fun `the override can never unblock a password field`() {
+        val pw = info(
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        )
+        assertFalse(FieldGate.isAllowed(pw, allowIncognitoApps = true))
+        // and the reported reason must be the password, not the flag
+        assertEquals(
+            "TEXT_VARIATION_PASSWORD",
+            (FieldGate.verdict(pw, allowIncognitoApps = true) as FieldGate.Verdict.Blocked).reason
+        )
+    }
+
+    @Test fun `the override can never unblock an email, uri or number field`() {
+        val flag = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        assertFalse(FieldGate.isAllowed(info(0x000000D1, flag), allowIncognitoApps = true))
+        assertFalse(FieldGate.isAllowed(info(0x00000011, flag), allowIncognitoApps = true))
+        assertFalse(FieldGate.isAllowed(info(0x00006002, flag), allowIncognitoApps = true))
+        assertFalse(FieldGate.isAllowed(info(InputType.TYPE_CLASS_PHONE, flag), allowIncognitoApps = true))
+    }
+
+    @Test fun `molly search field follows the same rule`() {
+        // real captured value: im.molly.app search
+        val search = info(0x00008001, 0x03000003)
+        assertBlocked(search, "IME_FLAG_NO_PERSONALIZED_LEARNING")
+        assertTrue(FieldGate.isAllowed(search, allowIncognitoApps = true))
+    }
+
+    @Test fun `the override changes nothing for apps that do not set the flag`() {
+        val whatsapp = info(0x0002C001, 0x40000006)
+        assertTrue(FieldGate.isAllowed(whatsapp, allowIncognitoApps = false))
+        assertTrue(FieldGate.isAllowed(whatsapp, allowIncognitoApps = true))
+    }
+
     // ---- deny by default ----
 
     @Test fun `an unknown input class is blocked, not allowed`() {

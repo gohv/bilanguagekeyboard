@@ -150,6 +150,16 @@ class PolyTranslationActivity : Activity() {
         root.addView(livePreview, wide())
         hint(getString(R.string.poly_live_preview_hint))
 
+        val incognito = CheckBox(this).apply {
+            text = getString(R.string.poly_allow_incognito)
+            isChecked = PolyPrefs.allowIncognitoApps(this@PolyTranslationActivity)
+            setOnCheckedChangeListener { _, checked ->
+                PolyPrefs.setAllowIncognitoApps(this@PolyTranslationActivity, checked)
+            }
+        }
+        root.addView(incognito, wide())
+        hint(getString(R.string.poly_allow_incognito_hint))
+
         val useStub = CheckBox(this).apply {
             text = getString(R.string.poly_use_stub)
             isChecked = PolyPrefs.engine(this@PolyTranslationActivity) == PolyPrefs.ENGINE_STUB

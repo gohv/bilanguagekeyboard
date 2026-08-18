@@ -2,6 +2,7 @@
 package helium314.keyboard.polyboard
 
 import helium314.keyboard.latin.RichInputConnection
+import helium314.keyboard.latin.common.Constants
 
 /**
  * The real [FieldIo], over upstream's `RichInputConnection`.
@@ -14,7 +15,9 @@ import helium314.keyboard.latin.RichInputConnection
  */
 class RichInputConnectionFieldIo(private val conn: RichInputConnection) : FieldIo {
 
-    override fun read(): FieldText? {
+    override fun read(): FieldText? = readExtracted() ?: readFallback()
+
+    private fun readExtracted(): FieldText? {
         val extracted = conn.fullFieldText ?: return null
         val text = extracted.text?.toString() ?: return null
         // selectionStart/End are relative to the extracted window; startOffset locates that window.
@@ -23,6 +26,30 @@ class RichInputConnectionFieldIo(private val conn: RichInputConnection) : FieldI
         val start = (extracted.startOffset + extracted.selectionStart).coerceIn(0, text.length)
         val end = (extracted.startOffset + extracted.selectionEnd).coerceIn(0, text.length)
         return FieldText(text, minOf(start, end), maxOf(start, end))
+    }
+
+    /**
+     * For the apps whose `InputConnection` returns null from `getExtractedText`. Without this,
+     * translation is simply impossible in those apps, which is unacceptable for a keyboard that is
+     * supposed to work everywhere.
+     *
+     * The catch is that these reads come from a cache capped at
+     * [Constants.EDITOR_CONTENTS_CACHE_SIZE] characters. If either side comes back at the cap we
+     * cannot tell a full read from a truncated one, so this **refuses** rather than guessing:
+     * translating half a message and then computing a replace from the wrong length is far worse than
+     * declining. Short messages, which is nearly all of them, work fine.
+     */
+    private fun readFallback(): FieldText? {
+        val cap = Constants.EDITOR_CONTENTS_CACHE_SIZE
+        val before = conn.getTextBeforeCursor(cap, 0) ?: return null
+        val after = conn.getTextAfterCursor(cap, 0) ?: ""
+        if (before.length >= cap || after.length >= cap) {
+            PolyLog.w("field too long to read safely without getExtractedText; refusing to translate")
+            return null
+        }
+        PolyLog.d("using fallback field read (no getExtractedText); len=${before.length + after.length}")
+        val text = before.toString() + after.toString()
+        return FieldText(text, before.length, before.length)
     }
 
     override fun finishComposing() {

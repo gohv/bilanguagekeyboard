@@ -25,6 +25,9 @@ adb logcat -s PolyBoard:V
 | web `input[type=date]` | `0x00000000` | `NULL` | `UNSPECIFIED +...` | n/a, no text input |
 | web `input[type=text]` | `0x0000C0A1` | `TEXT/WEB_EDIT_TEXT +CAP_SENTENCES +AUTO_CORRECT` | `NEXT +...` | **translate** |
 | Revolut (banking) | — | no text field at all | — | see below |
+| **Molly** message box | `0x0002C001` | `TEXT/NORMAL +CAP_SENTENCES +AUTO_CORRECT +MULTI_LINE` | `SEND +NO_PERSONALIZED_LEARNING +NO_ENTER_ACTION` | **translate**, via the incognito override |
+| **Molly** search | `0x00008001` | `TEXT/NORMAL +AUTO_CORRECT` | `SEARCH +NO_PERSONALIZED_LEARNING +NO_FULLSCREEN` | translate, via the override |
+| Telegram, Slack, Signal, Gmail, Instagram | — | not installed / Chrome disabled on this device | — | untested |
 
 Reproduce the web rows with [fixtures/fieldtest.html](fixtures/fieldtest.html). `file://` is blocked
 by scoped storage and Chromium blocks top-level `data:` navigation, so serve it over the USB
@@ -81,3 +84,25 @@ Opening the web password field visibly switched the keyboard into incognito mode
 in the strip). Upstream already suppresses learning for these fields. The 6.1 gate is a separate,
 stricter thing — no translation at all — but it is good to know the existing behaviour is aligned
 rather than fighting us.
+
+
+## 5. Signal-family apps set the incognito-keyboard flag
+
+Molly (`im.molly.app`, a Signal fork) sets `IME_FLAG_NO_PERSONALIZED_LEARNING` on **both** its message
+box and its search field. Under spec 6.1 as literally written, that disables translation in Molly
+entirely, even though the message box is otherwise identical to WhatsApp's.
+
+This is now overridable and on by default. The reasoning, and why password gating is *not*
+overridable, is in DECISIONS.md.
+
+Practical note for testing: **Molly sets `FLAG_SECURE`**, so `screencap` returns an all-black image.
+Verify behaviour there through `uiautomator dump` (which still works) and the PolyBoard log, not
+screenshots.
+
+## 6. Do not use `adb shell monkey` to launch an app
+
+`monkey -p <pkg> -c android.intent.category.LAUNCHER 1` launches the app **and injects one
+pseudo-random UI event**. During this work such an event tapped a pending live-preview row and
+committed a translation into whatever field happened to be focused. Harmless there because it was a
+local test page, but in someone's real messaging app it would not be. Use
+`am start -n <pkg>/<activity>` instead.

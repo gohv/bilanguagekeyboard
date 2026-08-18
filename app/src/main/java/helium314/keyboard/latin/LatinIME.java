@@ -1060,7 +1060,8 @@ public class LatinIME extends InputMethodService implements
     /** Applies the 6.1 gate and refreshes the toolbar for a newly opened field. */
     private void onPolyStartInputView(final EditorInfo editorInfo) {
         if (mTranslationController == null) return;
-        final FieldGate.Verdict verdict = FieldGate.verdict(editorInfo);
+        final FieldGate.Verdict verdict =
+                FieldGate.verdict(editorInfo, PolyPrefs.INSTANCE.allowIncognitoApps(this));
         mTranslationController.onFieldChanged(verdict);
         final boolean allowed = verdict instanceof FieldGate.Verdict.Allowed;
         if (!allowed) {
