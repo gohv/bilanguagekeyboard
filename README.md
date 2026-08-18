@@ -1,3 +1,69 @@
+# PolyBoard
+
+A translate-as-you-type Android keyboard. You type in one language, the other language is
+what lands in the target app's text field. Translation runs on the device.
+
+PolyBoard is a fork of [HeliBoard](https://github.com/Helium314/HeliBoard), which is a fork
+of OpenBoard, which derives from AOSP LatinIME. Upstream's README follows below this
+section, unmodified.
+
+## License, read this first
+
+**HeliBoard is GPL-3.0. PolyBoard is therefore GPL-3.0.**
+
+Building and using this for yourself carries no distribution obligation. **The moment this
+APK is given to anyone else** — a Play or F-Droid listing, a GitHub release, or simply
+handing the file to a friend — **the complete corresponding source of this fork must be
+published under GPL-3.0.** That includes every change in this repository, not just the
+parts considered interesting.
+
+Do not add proprietary components without first resolving the licence conflict. Current
+distribution intent is personal sideload only, which is why the obligation has not been
+triggered yet. See [DECISIONS.md](DECISIONS.md).
+
+## Differences from upstream HeliBoard
+
+| | HeliBoard | PolyBoard |
+|---|---|---|
+| `applicationId` | `helium314.keyboard` | `it.hristov.polyboard` |
+| `minSdk` | 21 | 26 |
+| Network | no `INTERNET` permission, 100% offline | `INTERNET` for one-time translation model download |
+
+Installs alongside real HeliBoard; the two do not conflict.
+
+### On the "100% offline" claim
+
+Upstream's README below says HeliBoard "does not use internet permission, and thus is 100%
+offline." **That is true of upstream and will stop being true of PolyBoard** once the ML Kit
+engine lands in Phase 3. Being straight about this matters more than inheriting a nice
+claim: a keyboard is the single most sensitive app on a phone, and a keyboard that asks for
+network access is one you have to actively trust about keylogging.
+
+What is accurate for PolyBoard once Phase 3 lands:
+
+- Translation inference runs on this device. Typed text is never sent anywhere.
+- The network is touched for exactly one purpose: downloading translation models, once per
+  language, on request. That download is logged so the claim is auditable.
+- No analytics, no crash reporting, no ads, no third-party network libraries.
+- Typed text is never written to disk.
+
+If that tradeoff turns out to be unacceptable, Phase 7 of the project spec replaces the
+engine with bundled Opus-MT models and removes the `INTERNET` permission entirely, making
+the claim verifiable from the manifest rather than promised in a README. Note that Phase 7
+would also cut the supported language count from 58 to roughly a handful — see
+[DECISIONS.md](DECISIONS.md).
+
+### Build
+
+macOS on Apple Silicon, no Android Studio. See [docs/toolchain-setup.md](docs/toolchain-setup.md).
+
+```bash
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/PolyBoard_4.0-dev1-debug.apk
+```
+
+---
+
 # HeliBoard
 HeliBoard is a privacy-conscious and customizable open-source keyboard, based on AOSP / OpenBoard.
 Does not use internet permission, and thus is 100% offline.

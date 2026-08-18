@@ -12,8 +12,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "helium314.keyboard"
-        minSdk = 21
+        applicationId = "it.hristov.polyboard"
+        minSdk = 26
         targetSdk = 36
         versionCode = 4006
         versionName = "4.0-dev1"
@@ -67,7 +67,7 @@ android {
             }
             variant.outputs.forEach { output ->
                 if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
-                    output.outputFileName = "HeliBoard_${defaultConfig.versionName}-${variant.buildType}.apk"
+                    output.outputFileName = "PolyBoard_${defaultConfig.versionName}-${variant.buildType}.apk"
                 }
             }
         }
