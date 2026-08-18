@@ -69,6 +69,9 @@ import helium314.keyboard.latin.settings.SettingsValues;
 import helium314.keyboard.latin.suggestions.SuggestionStripView;
 import helium314.keyboard.latin.suggestions.SuggestionStripViewAccessor;
 import helium314.keyboard.latin.touchinputconsumer.GestureConsumer;
+import helium314.keyboard.polyboard.FieldDebugView;
+import helium314.keyboard.polyboard.FieldInfo;
+import helium314.keyboard.polyboard.PolyLog;
 import helium314.keyboard.latin.utils.ColorUtilKt;
 import helium314.keyboard.latin.utils.FloatingKeyboardUtils;
 import helium314.keyboard.latin.utils.FoldableUtils;
@@ -997,7 +1000,20 @@ public class LatinIME extends InputMethodService implements
                 currentSettingsValues.mGestureTrailEnabled,
                 currentSettingsValues.mGestureFloatingPreviewTextEnabled);
 
+        // PolyBoard phase 1 instrumentation: single-tag log of the decoded field, plus the
+        // optional debug overlay. Placed last so the overlay is not immediately overwritten by
+        // setNeutralSuggestionStrip() above. Metadata only, never field contents.
+        showPolyFieldInfo(editorInfo);
+
         if (TRACE) Debug.startMethodTracing("/data/trace/latinime");
+    }
+
+    /** PolyBoard: log the decoded field type, and show it in the strip if the debug pref is on. */
+    private void showPolyFieldInfo(final EditorInfo editorInfo) {
+        PolyLog.i(FieldInfo.describe(editorInfo));
+        if (hasSuggestionStripView() && FieldDebugView.isEnabled(this)) {
+            mSuggestionStripView.setExternalSuggestionView(FieldDebugView.create(this, editorInfo), false);
+        }
     }
 
     @Override

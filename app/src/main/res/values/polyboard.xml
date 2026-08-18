@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PolyBoard additions. Debug-only strings are not translatable. -->
+    <string name="prefs_poly_field_overlay" translatable="false">Show field type in suggestion strip</string>
+    <string name="prefs_poly_field_overlay_summary" translatable="false">PolyBoard: shows package name, decoded inputType and imeOptions when a field is opened</string>
+</resources>

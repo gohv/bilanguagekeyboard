@@ -38,6 +38,7 @@ fun DebugScreen(
         if (!BuildConfig.DEBUG) DebugSettings.PREF_SHOW_DEBUG_SETTINGS else null,
         DebugSettings.PREF_DEBUG_MODE,
         DebugSettings.PREF_SHOW_SUGGESTION_INFOS,
+        DebugSettings.PREF_POLY_FIELD_OVERLAY,
         DebugSettings.PREF_FORCE_NON_DISTINCT_MULTITOUCH,
         DebugSettings.PREF_SLIDING_KEY_INPUT_PREVIEW,
         R.string.prefs_dump_dynamic_dicts
@@ -87,6 +88,9 @@ private fun createDebugSettings(context: Context) = listOf(
     },
     Setting(context, DebugSettings.PREF_SHOW_SUGGESTION_INFOS, R.string.prefs_show_suggestion_infos) {
         SwitchPreference(it, Defaults.PREF_SHOW_SUGGESTION_INFOS) { KeyboardSwitcher.getInstance().setThemeNeedsReload() }
+    },
+    Setting(context, DebugSettings.PREF_POLY_FIELD_OVERLAY, R.string.prefs_poly_field_overlay, R.string.prefs_poly_field_overlay_summary) {
+        SwitchPreference(it, Defaults.PREF_POLY_FIELD_OVERLAY)
     },
     Setting(context, DebugSettings.PREF_FORCE_NON_DISTINCT_MULTITOUCH, R.string.prefs_force_non_distinct_multitouch) {
         SwitchPreference(it, Defaults.PREF_FORCE_NON_DISTINCT_MULTITOUCH) { needsRestart = true }

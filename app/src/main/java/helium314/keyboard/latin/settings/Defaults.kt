@@ -184,6 +184,8 @@ object Defaults {
     const val PREF_SHOW_DEBUG_SETTINGS = false
     val PREF_DEBUG_MODE = BuildConfig.DEBUG
     const val PREF_SHOW_SUGGESTION_INFOS = false
+    // PolyBoard: field-type debug overlay, off by default even in debug builds (it replaces the strip)
+    const val PREF_POLY_FIELD_OVERLAY = false
     const val PREF_FORCE_NON_DISTINCT_MULTITOUCH = false
     const val PREF_SLIDING_KEY_INPUT_PREVIEW = true
     const val PREF_USER_COLORS = "[]"
