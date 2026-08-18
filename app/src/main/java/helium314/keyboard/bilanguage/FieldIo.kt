@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 /** A snapshot of a text field: its full contents and where the selection is. */
 data class FieldText(

@@ -1,6 +1,6 @@
 # Observed field types
 
-Real `EditorInfo` values captured on the target device (Galaxy Z Fold 7, SM-F966B, Android 16)
+Real `EditorInfo` values captured on the target device (a foldable Android 16 device, Android 16)
 via the phase 1 instrumentation. This is the input for phase 2's spec 6.1 gating predicate, and
 the fixture set for its unit tests.
 
@@ -15,7 +15,7 @@ adb logcat -s PolyBoard:V
 | Where | inputType | Decoded | imeOptions | 6.1 verdict |
 |---|---|---|---|---|
 | WhatsApp message box | `0x0002C001` | `TEXT/NORMAL +CAP_SENTENCES +AUTO_CORRECT +MULTI_LINE` | `DONE +NO_ENTER_ACTION` | **translate** |
-| Proton Mail recipient | `0x00000021` | `TEXT/EMAIL_ADDRESS` | `NEXT +NO_FULLSCREEN` | exclude |
+| a mail app recipient | `0x00000021` | `TEXT/EMAIL_ADDRESS` | `NEXT +NO_FULLSCREEN` | exclude |
 | Brave omnibox | `0x00080011` | `TEXT/URI +NO_SUGGESTIONS` | `GO +NO_FULLSCREEN +NO_EXTRACT_UI` | exclude |
 | web `input[type=password]` | `0x000000E1` | `TEXT/WEB_PASSWORD` | `NEXT +NO_FULLSCREEN +NO_EXTRACT_UI` | exclude |
 | web `input[type=email]` | `0x000000D1` | `TEXT/WEB_EMAIL_ADDRESS` | same | exclude |
@@ -24,7 +24,7 @@ adb logcat -s PolyBoard:V
 | web `input[type=number]` | `0x00006002` | `NUMBER/NORMAL +DECIMAL` | same | exclude |
 | web `input[type=date]` | `0x00000000` | `NULL` | `UNSPECIFIED +...` | n/a, no text input |
 | web `input[type=text]` | `0x0000C0A1` | `TEXT/WEB_EDIT_TEXT +CAP_SENTENCES +AUTO_CORRECT` | `NEXT +...` | **translate** |
-| Revolut (banking) | — | no text field at all | — | see below |
+| a banking app | — | no text field at all | — | see below |
 | **Molly** message box | `0x0002C001` | `TEXT/NORMAL +CAP_SENTENCES +AUTO_CORRECT +MULTI_LINE` | `SEND +NO_PERSONALIZED_LEARNING +NO_ENTER_ACTION` | **translate**, via the incognito override |
 | **Molly** search | `0x00008001` | `TEXT/NORMAL +AUTO_CORRECT` | `SEARCH +NO_PERSONALIZED_LEARNING +NO_FULLSCREEN` | translate, via the override |
 | Telegram, Slack, Signal, Gmail, Instagram | — | not installed / Chrome disabled on this device | — | untested |
@@ -45,7 +45,7 @@ adb reverse tcp:8099 tcp:8099 && adb shell am start -a android.intent.action.VIE
 
 ### 1. Banking PIN entry never reaches the keyboard
 
-Revolut authenticates with a **biometric prompt** (`BiometricPromptRoot`), and the only field it
+the banking app authenticates with a **biometric prompt** (`BiometricPromptRoot`), and the only field it
 ever handed the IME was `TYPE_NULL`. Many banking apps are like this: biometrics, or a custom
 in-app digit pad built from ordinary buttons rather than an `EditText`.
 

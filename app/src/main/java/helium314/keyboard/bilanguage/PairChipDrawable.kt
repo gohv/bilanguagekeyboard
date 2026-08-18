@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.graphics.Canvas
 import android.graphics.ColorFilter

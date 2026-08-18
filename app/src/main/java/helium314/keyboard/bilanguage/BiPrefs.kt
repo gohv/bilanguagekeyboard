@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.content.Context
 import androidx.core.content.edit
 import helium314.keyboard.latin.utils.prefs
 
 /**
- * PolyBoard's own preferences, kept together so what the fork stores is auditable in one place.
+ * BiLanguageKeyboard's own preferences, kept together so what the fork stores is auditable in one place.
  *
  * Note what is deliberately absent: anything containing typed text. Spec 6.4 allows an in-memory LRU
  * keyed on a hash but no persisted message content, so nothing here is a translation cache.
  */
-object PolyPrefs {
+object BiPrefs {
 
-    /** Which [helium314.keyboard.polyboard.engine.TranslationEngine] to use. */
-    const val PREF_ENGINE = "poly_engine"
+    /** Which [helium314.keyboard.bilanguage.engine.TranslationEngine] to use. */
+    const val PREF_ENGINE = "blk_engine"
     const val ENGINE_MLKIT = "mlkit"
     const val ENGINE_STUB = "stub"
     const val DEFAULT_ENGINE = ENGINE_MLKIT
@@ -24,10 +24,10 @@ object PolyPrefs {
      * run and no model is ever fetched: spec section 7 requires the disclosure to come first, and
      * section 11 forbids downloading silently.
      */
-    const val PREF_DISCLOSURE_ACCEPTED = "poly_disclosure_accepted"
+    const val PREF_DISCLOSURE_ACCEPTED = "blk_disclosure_accepted"
 
     /** Download models on unmetered connections only. Default true, per spec section 7. */
-    const val PREF_UNMETERED_ONLY = "poly_unmetered_only"
+    const val PREF_UNMETERED_ONLY = "blk_unmetered_only"
 
     /**
      * Translate in apps that set `IME_FLAG_NO_PERSONALIZED_LEARNING` (Signal, Molly, and other
@@ -35,7 +35,7 @@ object PolyPrefs {
      * apps it is most wanted in. See [FieldGate.INCOGNITO_RATIONALE] for why this is safe to override
      * while password gating is not.
      */
-    const val PREF_ALLOW_INCOGNITO_APPS = "poly_allow_incognito_apps"
+    const val PREF_ALLOW_INCOGNITO_APPS = "blk_allow_incognito_apps"
 
     fun allowIncognitoApps(context: Context): Boolean =
         context.prefs().getBoolean(PREF_ALLOW_INCOGNITO_APPS, true)
@@ -44,7 +44,7 @@ object PolyPrefs {
         context.prefs().edit { putBoolean(PREF_ALLOW_INCOGNITO_APPS, value) }
 
     /** Mode 2 live preview. Default off: roughly ten times the inference calls of Mode 1. */
-    const val PREF_LIVE_PREVIEW = "poly_live_preview"
+    const val PREF_LIVE_PREVIEW = "blk_live_preview"
 
     fun engine(context: Context): String =
         context.prefs().getString(PREF_ENGINE, DEFAULT_ENGINE) ?: DEFAULT_ENGINE
@@ -72,7 +72,7 @@ object PolyPrefs {
      * there is otherwise nothing to infer a target from, and "the language the user deliberately
      * downloaded" is by far the best available guess.
      */
-    const val PREF_KNOWN_MODELS = "poly_known_models"
+    const val PREF_KNOWN_MODELS = "blk_known_models"
 
     fun knownModelLanguages(context: Context): List<String> =
         context.prefs().getString(PREF_KNOWN_MODELS, "")

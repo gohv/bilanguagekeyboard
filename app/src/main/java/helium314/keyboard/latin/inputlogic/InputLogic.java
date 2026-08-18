@@ -864,7 +864,7 @@ public final class InputLogic {
             case KeyCode.TIMESTAMP:
                 mLatinIME.onTextInput(TimestampKt.getTimestamp(mLatinIME));
                 break;
-            // PolyBoard. Explicit breaks: the SEND_INTENT arm below is missing one upstream and
+            // BiLanguageKeyboard. Explicit breaks: the SEND_INTENT arm below is missing one upstream and
             // falls through into IME_HIDE_UI, which is not a pattern to copy.
             case KeyCode.TRANSLATE:
                 mLatinIME.onTranslateKey();

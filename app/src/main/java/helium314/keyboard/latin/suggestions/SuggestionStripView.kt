@@ -45,7 +45,7 @@ import helium314.keyboard.latin.define.DebugFlags
 import helium314.keyboard.latin.settings.DebugSettings
 import helium314.keyboard.latin.settings.Defaults
 import helium314.keyboard.latin.settings.Settings
-import helium314.keyboard.polyboard.PairChipDrawable
+import helium314.keyboard.bilanguage.PairChipDrawable
 import helium314.keyboard.latin.utils.ToolbarKey
 import helium314.keyboard.latin.utils.ToolbarMode
 import helium314.keyboard.latin.utils.addPinnedKey
@@ -501,7 +501,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         }
     }
 
-    // ---- PolyBoard ----
+    // ---- BiLanguageKeyboard ----
 
     /**
      * Greys out and disables the translate key when the field is sensitive (spec 6.1).

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard.engine
+package helium314.keyboard.bilanguage.engine
 
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.languageid.LanguageIdentifier as MlKitIdentifier
-import helium314.keyboard.polyboard.PolyLog
+import helium314.keyboard.bilanguage.BiLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -31,7 +31,7 @@ class MlKitLanguageIdentifier : LanguageIdentifier {
                 val task = client.identifyLanguage(text)
                 task.addOnSuccessListener { if (cont.isActive) cont.resume(it) }
                 task.addOnFailureListener { e ->
-                    PolyLog.e("language identification failed", e)
+                    BiLog.e("language identification failed", e)
                     if (cont.isActive) cont.resume(UNDETERMINED)
                 }
             }
@@ -39,7 +39,7 @@ class MlKitLanguageIdentifier : LanguageIdentifier {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            PolyLog.e("language identification threw", e)
+            BiLog.e("language identification threw", e)
             null
         }
     }
@@ -48,7 +48,7 @@ class MlKitLanguageIdentifier : LanguageIdentifier {
         try {
             client.close()
         } catch (e: Exception) {
-            PolyLog.e("closing language identifier failed", e)
+            BiLog.e("closing language identifier failed", e)
         }
     }
 

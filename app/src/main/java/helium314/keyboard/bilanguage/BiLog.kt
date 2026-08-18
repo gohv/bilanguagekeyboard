@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import helium314.keyboard.latin.utils.Log
 
 /**
- * The single logging tag for everything PolyBoard adds on top of HeliBoard.
+ * The single logging tag for everything BiLanguageKeyboard adds on top of HeliBoard.
  *
- *     adb logcat -s PolyBoard:V
+ *     adb logcat -s BiLanguageKeyboard:V
  *
- * Delegates to upstream's [Log] rather than `android.util.Log` so PolyBoard lines also show up
+ * Delegates to upstream's [Log] rather than `android.util.Log` so BiLanguageKeyboard lines also show up
  * in the in-app log viewer, same as the rest of the keyboard.
  *
  * ## Never pass user-typed text to these methods
  *
  * This is not a style preference, it is spec section 6.4. Upstream's [Log] retains up to 12000
  * lines in memory, and `DebugFlags.CrashReportExceptionHandler` writes the last 100 of them into
- * a crash report file in external storage. So a single `PolyLog.d("translating: $text")` would
+ * a crash report file in external storage. So a single `BiLog.d("translating: $text")` would
  * persist typed text to disk the next time the keyboard crashed, which for a keyboard is
  * indefensible.
  *
@@ -23,8 +23,8 @@ import helium314.keyboard.latin.utils.Log
  * When you genuinely need to correlate a specific string across log lines, log
  * [redact]`(text)` — a length plus a hash, which is stable across lines but not reversible.
  */
-object PolyLog {
-    const val TAG = "PolyBoard"
+object BiLog {
+    const val TAG = "BiLangKb"
 
     @JvmStatic fun v(message: String) = Log.v(TAG, message)
     @JvmStatic fun d(message: String) = Log.d(TAG, message)

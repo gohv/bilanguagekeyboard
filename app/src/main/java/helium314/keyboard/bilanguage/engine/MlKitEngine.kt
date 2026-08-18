@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard.engine
+package helium314.keyboard.bilanguage.engine
 
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.common.model.DownloadConditions
@@ -9,7 +9,7 @@ import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
-import helium314.keyboard.polyboard.PolyLog
+import helium314.keyboard.bilanguage.BiLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -53,7 +53,7 @@ class MlKitEngine(
         if (needed.isEmpty()) return false
         val downloaded = downloadedLanguageTags()
         val ready = needed.all { it in downloaded }
-        if (!ready) PolyLog.d("pair $source->$target not ready; have=$downloaded need=$needed")
+        if (!ready) BiLog.d("pair $source->$target not ready; have=$downloaded need=$needed")
         return ready
     }
 
@@ -76,7 +76,7 @@ class MlKitEngine(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        PolyLog.e("could not list downloaded models", e)
+        BiLog.e("could not list downloaded models", e)
         emptySet()
     }
 
@@ -94,15 +94,15 @@ class MlKitEngine(
         val translator = translatorFor(s, t)
 
         // This is the one network call in the whole app. Logged deliberately and specifically.
-        PolyLog.i("MODEL DOWNLOAD starting for $s<->$t (requireWifi=$requireWifi) - this is the only network use")
+        BiLog.i("MODEL DOWNLOAD starting for $s<->$t (requireWifi=$requireWifi) - this is the only network use")
         translator.downloadModelIfNeeded(conditions)
             .addOnSuccessListener {
-                PolyLog.i("MODEL DOWNLOAD complete for $s<->$t")
+                BiLog.i("MODEL DOWNLOAD complete for $s<->$t")
                 trySend(PrepareState.Ready)
                 close()
             }
             .addOnFailureListener { e ->
-                PolyLog.e("MODEL DOWNLOAD failed for $s<->$t", e)
+                BiLog.e("MODEL DOWNLOAD failed for $s<->$t", e)
                 // Almost every failure here is transient: no network, wifi required but absent, or
                 // storage full. Treat as retryable and let the user decide.
                 trySend(PrepareState.Failed(e.message ?: "Download failed", retryable = true))
@@ -151,12 +151,12 @@ class MlKitEngine(
         val tag = normalise(languageTag) ?: return false
         return try {
             modelManager.deleteDownloadedModel(TranslateRemoteModel.Builder(tag).build()).awaitTask()
-            PolyLog.i("deleted model $tag")
+            BiLog.i("deleted model $tag")
             true
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            PolyLog.e("could not delete model $tag", e)
+            BiLog.e("could not delete model $tag", e)
             false
         }
     }
@@ -164,7 +164,7 @@ class MlKitEngine(
     override fun close() {
         translators.values.forEach { it.close() }
         translators.clear()
-        PolyLog.i("MlKitEngine closed, translators released")
+        BiLog.i("MlKitEngine closed, translators released")
     }
 
     companion object {

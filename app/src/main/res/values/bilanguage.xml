@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        BiLanguageKeyboard additions. All translatable="false": upstream ships ~100 locales and the app is
+        built with lint.abortOnError=true, so a translatable string without translations fails the
+        build on MissingTranslation. Revisit if this fork is ever actually distributed.
+    -->
+
+    <!-- toolbar key content descriptions. Names must match ToolbarKey entry names, lowercased. -->
+    <string name="translate" translatable="false">Translate</string>
+    <string name="translate_pair" translatable="false">Translation language pair</string>
+
+    <!-- candidates strip states -->
+    <string name="blk_undo" translatable="false">Undo</string>
+    <string name="blk_translated" translatable="false">Translated %1$s → %2$s</string>
+    <string name="blk_already_in" translatable="false">Already in %1$s</string>
+    <string name="blk_preparing" translatable="false">Preparing translation…</string>
+    <string name="blk_working" translatable="false">Translating…</string>
+
+    <!-- translate key states / strip rows -->
+    <string name="blk_model_missing" translatable="false">No model for %1$s → %2$s. Tap to set up</string>
+    <string name="blk_needs_disclosure" translatable="false">Tap to set up translation</string>
+    <string name="blk_tap_to_use" translatable="false">tap to use</string>
+
+    <!-- first-run disclosure -->
+    <string name="blk_disclosure_title" translatable="false">How translation works</string>
+    <string name="blk_disclosure_accept" translatable="false">I understand, continue</string>
+
+    <!-- model management -->
+    <string name="blk_models_title" translatable="false">Translation</string>
+    <string name="blk_models_heading" translatable="false">Languages</string>
+    <string name="blk_models_size_note" translatable="false">Each language is roughly %1$d MB. That is the figure Google publishes, not a measurement: ML Kit does not report actual size on disk.</string>
+    <string name="blk_model_ready" translatable="false">on device, ~%1$d MB</string>
+    <string name="blk_model_absent" translatable="false">not downloaded</string>
+    <string name="blk_download" translatable="false">Download</string>
+    <string name="blk_delete" translatable="false">Delete</string>
+    <string name="blk_downloading" translatable="false">Downloading %1$s…</string>
+    <string name="blk_download_failed" translatable="false">Download failed: %1$s</string>
+    <string name="blk_delete_failed" translatable="false">Could not delete that model</string>
+    <string name="blk_loading" translatable="false">Checking which models are on the device…</string>
+    <string name="blk_no_models_yet" translatable="false">No models yet. Download the languages you type in, and English, since every model translates to and from English.</string>
+    <string name="blk_unmetered_only" translatable="false">Download models on Wi-Fi only</string>
+    <string name="blk_live_preview" translatable="false">Show translation instead of word suggestions</string>
+    <string name="blk_live_preview_hint" translatable="false">As you type, the translation appears in the suggestion strip; tap it to replace your text. You lose word suggestions and autocorrect while it is showing, and it runs many more translations than the translate key does.</string>
+    <string name="blk_allow_incognito" translatable="false">Translate in private-keyboard apps (Signal, Molly)</string>
+    <string name="blk_allow_incognito_hint" translatable="false">These apps ask keyboards not to learn from what you type. BiLanguageKeyboard never saves your text anywhere, so it honours that either way. Turn this off to also stop translating in those apps. Password, email, URL, phone and number fields stay blocked regardless.</string>
+    <string name="blk_use_stub" translatable="false">Use the fake test engine</string>
+    <string name="blk_stub_active" translatable="false">The fake engine uppercases your text and prefixes the target language. Nothing is translated and no model is used.</string>
+    <string name="blk_mlkit_attribution" translatable="false">Translation powered by Google ML Kit, running on this device.</string>
+
+    <!-- debug -->
+    <string name="prefs_blk_field_overlay" translatable="false">Show field type in suggestion strip</string>
+    <string name="prefs_blk_field_overlay_summary" translatable="false">BiLanguageKeyboard: shows package name, decoded inputType and imeOptions when a field is opened</string>
+</resources>

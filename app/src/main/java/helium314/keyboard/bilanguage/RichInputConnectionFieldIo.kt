@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import helium314.keyboard.latin.RichInputConnection
 import helium314.keyboard.latin.common.Constants
@@ -44,10 +44,10 @@ class RichInputConnectionFieldIo(private val conn: RichInputConnection) : FieldI
         val before = conn.getTextBeforeCursor(cap, 0) ?: return null
         val after = conn.getTextAfterCursor(cap, 0) ?: ""
         if (before.length >= cap || after.length >= cap) {
-            PolyLog.w("field too long to read safely without getExtractedText; refusing to translate")
+            BiLog.w("field too long to read safely without getExtractedText; refusing to translate")
             return null
         }
-        PolyLog.d("using fallback field read (no getExtractedText); len=${before.length + after.length}")
+        BiLog.d("using fallback field read (no getExtractedText); len=${before.length + after.length}")
         val text = before.toString() + after.toString()
         return FieldText(text, before.length, before.length)
     }

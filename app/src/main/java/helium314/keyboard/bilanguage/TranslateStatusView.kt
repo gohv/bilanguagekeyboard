@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -44,7 +44,7 @@ object TranslateStatusView {
             row(
                 context,
                 context.getString(
-                    R.string.poly_model_missing,
+                    R.string.blk_model_missing,
                     state.from.uppercase(),
                     state.to.uppercase()
                 ),
@@ -53,17 +53,17 @@ object TranslateStatusView {
                 onWholeRowClick = onOpenSettings,
             )
         TranslateUiState.NeedsDisclosure ->
-            row(context, context.getString(R.string.poly_needs_disclosure), null, onWholeRowClick = onOpenSettings)
+            row(context, context.getString(R.string.blk_needs_disclosure), null, onWholeRowClick = onOpenSettings)
         is TranslateUiState.Committed ->
-            row(context, context.getString(R.string.poly_translated, state.from.uppercase(), state.to.uppercase()), onUndo)
+            row(context, context.getString(R.string.blk_translated, state.from.uppercase(), state.to.uppercase()), onUndo)
         is TranslateUiState.AlreadyInTarget ->
-            row(context, context.getString(R.string.poly_already_in, state.language.uppercase()), null)
+            row(context, context.getString(R.string.blk_already_in, state.language.uppercase()), null)
         is TranslateUiState.Failed ->
             row(context, state.message, null, isError = true)
         TranslateUiState.Working ->
-            row(context, context.getString(R.string.poly_working), null)
+            row(context, context.getString(R.string.blk_working), null)
         TranslateUiState.Preparing ->
-            row(context, context.getString(R.string.poly_preparing), null)
+            row(context, context.getString(R.string.blk_preparing), null)
         // Idle and Disabled show nothing; the strip goes back to normal suggestions.
         else -> null
     }
@@ -87,7 +87,7 @@ object TranslateStatusView {
             isSoundEffectsEnabled = false
         }
         val hint = TextView(context).apply {
-            text = context.getString(R.string.poly_tap_to_use)
+            text = context.getString(R.string.blk_tap_to_use)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             setTextColor(colors.get(ColorType.KEY_TEXT))
             alpha = 0.6f
@@ -154,7 +154,7 @@ object TranslateStatusView {
             if (onWholeRowClick != null) setOnClickListener { onWholeRowClick() }
             if (onUndo != null) {
                 val undo = TextView(context).apply {
-                    text = context.getString(R.string.poly_undo)
+                    text = context.getString(R.string.blk_undo)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                     setTextColor(textColor)
                     setTypeface(typeface, Typeface.BOLD)

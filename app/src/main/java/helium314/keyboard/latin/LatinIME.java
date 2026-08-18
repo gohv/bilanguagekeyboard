@@ -71,20 +71,20 @@ import helium314.keyboard.latin.suggestions.SuggestionStripViewAccessor;
 import helium314.keyboard.latin.touchinputconsumer.GestureConsumer;
 import helium314.keyboard.latin.utils.SubtypeSettings;
 import helium314.keyboard.latin.utils.SubtypeUtilsKt;
-import helium314.keyboard.polyboard.FieldGate;
-import helium314.keyboard.polyboard.FieldIo;
-import helium314.keyboard.polyboard.LanguagePairStore;
-import helium314.keyboard.polyboard.PairChipDrawable;
-import helium314.keyboard.polyboard.RichInputConnectionFieldIo;
-import helium314.keyboard.polyboard.TranslateStatusView;
-import helium314.keyboard.polyboard.TranslateUiState;
-import helium314.keyboard.polyboard.TranslationController;
-import helium314.keyboard.polyboard.EngineFactory;
-import helium314.keyboard.polyboard.PolyPrefs;
-import helium314.keyboard.polyboard.PolyTranslationActivity;
-import helium314.keyboard.polyboard.FieldDebugView;
-import helium314.keyboard.polyboard.FieldInfo;
-import helium314.keyboard.polyboard.PolyLog;
+import helium314.keyboard.bilanguage.FieldGate;
+import helium314.keyboard.bilanguage.FieldIo;
+import helium314.keyboard.bilanguage.LanguagePairStore;
+import helium314.keyboard.bilanguage.PairChipDrawable;
+import helium314.keyboard.bilanguage.RichInputConnectionFieldIo;
+import helium314.keyboard.bilanguage.TranslateStatusView;
+import helium314.keyboard.bilanguage.TranslateUiState;
+import helium314.keyboard.bilanguage.TranslationController;
+import helium314.keyboard.bilanguage.EngineFactory;
+import helium314.keyboard.bilanguage.BiPrefs;
+import helium314.keyboard.bilanguage.BiTranslationActivity;
+import helium314.keyboard.bilanguage.FieldDebugView;
+import helium314.keyboard.bilanguage.FieldInfo;
+import helium314.keyboard.bilanguage.BiLog;
 import helium314.keyboard.latin.utils.ColorUtilKt;
 import helium314.keyboard.latin.utils.FloatingKeyboardUtils;
 import helium314.keyboard.latin.utils.FoldableUtils;
@@ -157,7 +157,7 @@ public class LatinIME extends InputMethodService implements
     private InsetsOutlineProvider mInsetsUpdater;
     private SuggestionStripView mSuggestionStripView;
 
-    // PolyBoard. The controller is cheap to construct; the engine inside it is created lazily on
+    // BiLanguageKeyboard. The controller is cheap to construct; the engine inside it is created lazily on
     // first translate so keyboard render is never blocked (spec section 8).
     private TranslationController mTranslationController;
     private LanguagePairStore mLanguagePairStore;
@@ -602,7 +602,7 @@ public class LatinIME extends InputMethodService implements
         registerReceiver(mRestartAfterDeviceUnlockReceiver, restartAfterUnlockFilter);
 
         StatsUtils.onCreate(mSettings.getCurrent(), mRichImm);
-        initPolyBoard(); // PolyBoard: cheap; the engine itself stays lazy
+        initBiLanguage(); // BiLanguageKeyboard: cheap; the engine itself stays lazy
 
     }
 
@@ -715,7 +715,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onDestroy() {
-        // PolyBoard: engines hold native resources and leak if not closed
+        // BiLanguageKeyboard: engines hold native resources and leak if not closed
         if (mTranslationController != null) mTranslationController.close();
         mClipboardHistoryManager.onDestroy();
         mDictionaryFacilitator.closeDictionaries();
@@ -1022,31 +1022,31 @@ public class LatinIME extends InputMethodService implements
                 currentSettingsValues.mGestureTrailEnabled,
                 currentSettingsValues.mGestureFloatingPreviewTextEnabled);
 
-        // PolyBoard phase 1 instrumentation: single-tag log of the decoded field, plus the
+        // BiLanguageKeyboard phase 1 instrumentation: single-tag log of the decoded field, plus the
         // optional debug overlay. Placed last so the overlay is not immediately overwritten by
         // setNeutralSuggestionStrip() above. Metadata only, never field contents.
-        showPolyFieldInfo(editorInfo);
-        onPolyStartInputView(editorInfo);
+        showBiFieldInfo(editorInfo);
+        onBiStartInputView(editorInfo);
 
         if (TRACE) Debug.startMethodTracing("/data/trace/latinime");
     }
 
-    /** PolyBoard: log the decoded field type, and show it in the strip if the debug pref is on. */
-    private void showPolyFieldInfo(final EditorInfo editorInfo) {
-        PolyLog.i(FieldInfo.describe(editorInfo));
+    /** BiLanguageKeyboard: log the decoded field type, and show it in the strip if the debug pref is on. */
+    private void showBiFieldInfo(final EditorInfo editorInfo) {
+        BiLog.i(FieldInfo.describe(editorInfo));
         if (hasSuggestionStripView() && FieldDebugView.isEnabled(this)) {
             mSuggestionStripView.setExternalSuggestionView(FieldDebugView.create(this, editorInfo), false);
         }
     }
 
-    // ---------------- PolyBoard translation (phase 2) ----------------
+    // ---------------- BiLanguageKeyboard translation (phase 2) ----------------
 
     /**
      * Constructs the controller. Deliberately does NOT touch the engine: the engine is created on
      * first translate request so that showing the keyboard is never blocked on model load
      * (spec section 8).
      */
-    private void initPolyBoard() {
+    private void initBiLanguage() {
         mLanguagePairStore = new LanguagePairStore(this);
         mTranslationController = new TranslationController(
                 () -> EngineFactory.INSTANCE.engine(this),
@@ -1054,36 +1054,36 @@ public class LatinIME extends InputMethodService implements
                 TranslationController.Companion.newMainScope(),
                 kotlinx.coroutines.Dispatchers.getDefault(),
                 TranslationController.TRANSLATE_TIMEOUT_MS);
-        mTranslationController.setStateListener(this::onPolyStateChanged);
+        mTranslationController.setStateListener(this::onBiStateChanged);
     }
 
     /** Applies the 6.1 gate and refreshes the toolbar for a newly opened field. */
-    private void onPolyStartInputView(final EditorInfo editorInfo) {
+    private void onBiStartInputView(final EditorInfo editorInfo) {
         if (mTranslationController == null) return;
         final FieldGate.Verdict verdict =
-                FieldGate.verdict(editorInfo, PolyPrefs.INSTANCE.allowIncognitoApps(this));
+                FieldGate.verdict(editorInfo, BiPrefs.INSTANCE.allowIncognitoApps(this));
         mTranslationController.onFieldChanged(verdict);
         final boolean allowed = verdict instanceof FieldGate.Verdict.Allowed;
         if (!allowed) {
-            PolyLog.i("translation disabled: " + ((FieldGate.Verdict.Blocked) verdict).getReason());
+            BiLog.i("translation disabled: " + ((FieldGate.Verdict.Blocked) verdict).getReason());
         }
         if (hasSuggestionStripView()) {
             mSuggestionStripView.setTranslateKeyEnabled(allowed);
             mSuggestionStripView.setTranslatePairLabel(
-                    PairChipDrawable.Companion.label(polySourceLanguage(), polyTargetLanguage()));
+                    PairChipDrawable.Companion.label(biSourceLanguage(), biTargetLanguage()));
         }
     }
 
     /** Language being typed: the active subtype. See LanguagePairStore for why source is not stored. */
-    private String polySourceLanguage() {
+    private String biSourceLanguage() {
         return TranslationController.Companion.languageOf(mRichImm.getCurrentSubtypeLocale());
     }
 
-    private String polyTargetLanguage() {
+    private String biTargetLanguage() {
         final EditorInfo editorInfo = getCurrentInputEditorInfo();
         final String pkg = editorInfo == null ? null : editorInfo.packageName;
-        return mLanguagePairStore.effectiveTarget(pkg, polySourceLanguage(),
-                EngineFactory.INSTANCE.supportedLanguages(this), polyEnabledLanguages());
+        return mLanguagePairStore.effectiveTarget(pkg, biSourceLanguage(),
+                EngineFactory.INSTANCE.supportedLanguages(this), biEnabledLanguages());
     }
 
     /**
@@ -1094,19 +1094,19 @@ public class LatinIME extends InputMethodService implements
      * all-English device every other signal is the source language itself, and without this the
      * default pair came out as EN to Afrikaans purely because "af" sorts first.
      */
-    private java.util.List<String> polyEnabledLanguages() {
+    private java.util.List<String> biEnabledLanguages() {
         final java.util.List<String> out = new java.util.ArrayList<>();
         for (InputMethodSubtype subtype : SubtypeSettings.INSTANCE.getEnabledSubtypes(true)) {
             final String lang = TranslationController.Companion.languageOf(SubtypeUtilsKt.locale(subtype));
             if (!out.contains(lang)) out.add(lang);
         }
-        for (String lang : PolyPrefs.INSTANCE.knownModelLanguages(this)) {
+        for (String lang : BiPrefs.INSTANCE.knownModelLanguages(this)) {
             if (!out.contains(lang)) out.add(lang);
         }
         return out;
     }
 
-    private FieldIo polyFieldIo() {
+    private FieldIo biFieldIo() {
         return new RichInputConnectionFieldIo(mInputLogic.mConnection);
     }
 
@@ -1114,16 +1114,16 @@ public class LatinIME extends InputMethodService implements
     public void onTranslateKey() {
         if (mTranslationController == null) return;
         // Spec section 7 and 11: nothing runs, and nothing downloads, before the disclosure is read.
-        if (!PolyPrefs.INSTANCE.disclosureAccepted(this)) {
-            onPolyStateChanged(TranslateUiState.NeedsDisclosure.INSTANCE);
+        if (!BiPrefs.INSTANCE.disclosureAccepted(this)) {
+            onBiStateChanged(TranslateUiState.NeedsDisclosure.INSTANCE);
             return;
         }
-        mTranslationController.translateNow(polyFieldIo(), polySourceLanguage(), polyTargetLanguage());
+        mTranslationController.translateNow(biFieldIo(), biSourceLanguage(), biTargetLanguage());
     }
 
     /** Long-press on the translate key or the pair chip: the picker / model management screen. */
     public void onTranslatePickerKey() {
-        final Intent intent = new Intent(this, PolyTranslationActivity.class);
+        final Intent intent = new Intent(this, BiTranslationActivity.class);
         // An IME has no task of its own, so a new task is required here.
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent);
@@ -1133,16 +1133,16 @@ public class LatinIME extends InputMethodService implements
      * Mode 2 live preview. Called after every input event; cheap to call, since the controller
      * debounces and the whole thing is off unless the user opted in.
      */
-    private void onPolyTextChanged(final Event event) {
+    private void onBiTextChanged(final Event event) {
         if (mTranslationController == null) return;
-        if (!PolyPrefs.INSTANCE.livePreview(this)) return;
-        if (!PolyPrefs.INSTANCE.disclosureAccepted(this)) return;
+        if (!BiPrefs.INSTANCE.livePreview(this)) return;
+        if (!BiPrefs.INSTANCE.disclosureAccepted(this)) return;
         final int code = event.getKeyCode();
         // Our own keys must not drive the preview loop.
         if (code == KeyCode.TRANSLATE || code == KeyCode.TRANSLATE_PAIR || code == KeyCode.TRANSLATE_PICKER) return;
         final boolean immediate = TranslationController.Companion.isSentenceTerminal(event.getCodePoint());
         mTranslationController.onTextChanged(
-                polyFieldIo(), polySourceLanguage(), polyTargetLanguage(), immediate);
+                biFieldIo(), biSourceLanguage(), biTargetLanguage(), immediate);
     }
 
     /**
@@ -1156,8 +1156,8 @@ public class LatinIME extends InputMethodService implements
         if (mTranslationController == null) return;
         final EditorInfo editorInfo = getCurrentInputEditorInfo();
         final String pkg = editorInfo == null ? null : editorInfo.packageName;
-        final String source = polySourceLanguage();
-        final String target = polyTargetLanguage();
+        final String source = biSourceLanguage();
+        final String target = biTargetLanguage();
 
         final InputMethodSubtype subtypeForTarget =
                 mRichImm.findSubtypeForHintLocale(new Locale(target));
@@ -1166,7 +1166,7 @@ public class LatinIME extends InputMethodService implements
                         SubtypeUtilsKt.locale(subtypeForTarget)).equals(source)) {
             // real direction swap: type in the old target, translate into the old source
             mLanguagePairStore.setTargetFor(pkg, source);
-            PolyLog.i("pair swapped: " + source + "->" + target + " becomes " + target + "->" + source);
+            BiLog.i("pair swapped: " + source + "->" + target + " becomes " + target + "->" + source);
             switchToSubtype(subtypeForTarget);
             return;
         }
@@ -1183,16 +1183,16 @@ public class LatinIME extends InputMethodService implements
         }
         if (hasSuggestionStripView()) {
             mSuggestionStripView.setTranslatePairLabel(
-                    PairChipDrawable.Companion.label(polySourceLanguage(), polyTargetLanguage()));
+                    PairChipDrawable.Companion.label(biSourceLanguage(), biTargetLanguage()));
         }
     }
 
     /** Reflects controller state in the candidates strip. */
-    private void onPolyStateChanged(final TranslateUiState state) {
+    private void onBiStateChanged(final TranslateUiState state) {
         if (!hasSuggestionStripView()) return;
         final View view = TranslateStatusView.INSTANCE.forState(this, state,
-                () -> { mTranslationController.undoLast(polyFieldIo()); return Unit.INSTANCE; },
-                () -> { mTranslationController.commitPreview(polyFieldIo()); return Unit.INSTANCE; },
+                () -> { mTranslationController.undoLast(biFieldIo()); return Unit.INSTANCE; },
+                () -> { mTranslationController.commitPreview(biFieldIo()); return Unit.INSTANCE; },
                 () -> { onTranslatePickerKey(); return Unit.INSTANCE; });
         if (view != null) {
             mSuggestionStripView.setExternalSuggestionView(view, false);
@@ -1623,7 +1623,7 @@ public class LatinIME extends InputMethodService implements
                         mKeyboardSwitcher.getCurrentKeyboardScript(), mHandler);
         updateStateAfterInputTransaction(completeInputTransaction);
         mKeyboardSwitcher.onEvent(event, getCurrentAutoCapsState(), getCurrentRecapitalizeState());
-        onPolyTextChanged(event); // PolyBoard mode 2; no-op unless live preview is enabled
+        onBiTextChanged(event); // BiLanguageKeyboard mode 2; no-op unless live preview is enabled
     }
 
     public void onTextInput(@Nullable String rawText) {
@@ -2059,7 +2059,7 @@ public class LatinIME extends InputMethodService implements
             case TRIM_MEMORY_RUNNING_LOW, TRIM_MEMORY_RUNNING_CRITICAL, TRIM_MEMORY_COMPLETE -> {
                 KeyboardLayoutSet.Companion.onSystemLocaleChanged(); // clears caches, nothing else
                 mKeyboardSwitcher.trimMemory();
-                // PolyBoard (spec section 8): release the engine's native resources. It is
+                // BiLanguageKeyboard (spec section 8): release the engine's native resources. It is
                 // re-created on the next translate; a dropped model beats a killed process.
                 if (mTranslationController != null) mTranslationController.close();
             }

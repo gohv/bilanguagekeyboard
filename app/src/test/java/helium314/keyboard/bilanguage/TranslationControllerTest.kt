@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
-import helium314.keyboard.polyboard.engine.StubEngine
-import helium314.keyboard.polyboard.engine.StubLanguageIdentifier
-import helium314.keyboard.polyboard.engine.PrepareState
-import helium314.keyboard.polyboard.engine.TranslationEngine
+import helium314.keyboard.bilanguage.engine.StubEngine
+import helium314.keyboard.bilanguage.engine.StubLanguageIdentifier
+import helium314.keyboard.bilanguage.engine.PrepareState
+import helium314.keyboard.bilanguage.engine.TranslationEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

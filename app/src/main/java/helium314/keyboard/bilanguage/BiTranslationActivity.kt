@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.app.Activity
 import android.graphics.Color
@@ -17,8 +17,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import helium314.keyboard.latin.R
-import helium314.keyboard.polyboard.engine.MlKitEngine
-import helium314.keyboard.polyboard.engine.PrepareState
+import helium314.keyboard.bilanguage.engine.MlKitEngine
+import helium314.keyboard.bilanguage.engine.PrepareState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
  * The disclosure is shown first and blocks everything else until accepted, because until it is
  * accepted no model may be downloaded and no translation may run.
  */
-class PolyTranslationActivity : Activity() {
+class BiTranslationActivity : Activity() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var root: LinearLayout
@@ -68,7 +68,7 @@ class PolyTranslationActivity : Activity() {
 
     private fun render() {
         root.removeAllViews()
-        if (!PolyPrefs.disclosureAccepted(this)) renderDisclosure() else renderManagement()
+        if (!BiPrefs.disclosureAccepted(this)) renderDisclosure() else renderManagement()
     }
 
     // ---------------- first-run disclosure ----------------
@@ -79,21 +79,21 @@ class PolyTranslationActivity : Activity() {
      * what happens and exactly what does not.
      */
     private fun renderDisclosure() {
-        title(getString(R.string.poly_disclosure_title))
+        title(getString(R.string.blk_disclosure_title))
         body(
-            "PolyBoard translates what you type into another language, and it does the translating " +
+            "BiLanguageKeyboard translates what you type into another language, and it does the translating " +
                 "here, on this phone."
         )
         body(
             "What you type is never sent anywhere. There is no server behind this keyboard, no " +
                 "account, and no analytics. Nothing you write is uploaded, and nothing you write is " +
-                "saved to disk by PolyBoard."
+                "saved to disk by BiLanguageKeyboard."
         )
         heading("Why the keyboard asks for internet access")
         body(
             "Translation needs a language model, and those models are downloaded from Google once " +
                 "per language, roughly ${MlKitEngine.APPROX_MODEL_MB}MB each. That download is the " +
-                "only reason PolyBoard has the INTERNET permission, and it is the only time the " +
+                "only reason BiLanguageKeyboard has the INTERNET permission, and it is the only time the " +
                 "keyboard touches the network."
         )
         body(
@@ -102,7 +102,7 @@ class PolyTranslationActivity : Activity() {
                 "with the network off entirely, and you can check that with aeroplane mode."
         )
         body(
-            "Every download is written to the log under the tag PolyBoard, so the claim above is " +
+            "Every download is written to the log under the tag BiLanguageKeyboard, so the claim above is " +
                 "something you can verify rather than something you have to believe."
         )
         heading("What is honestly worse about this")
@@ -116,10 +116,10 @@ class PolyTranslationActivity : Activity() {
         attribution()
 
         val accept = Button(this).apply {
-            text = getString(R.string.poly_disclosure_accept)
+            text = getString(R.string.blk_disclosure_accept)
             setOnClickListener {
-                PolyPrefs.setDisclosureAccepted(this@PolyTranslationActivity, true)
-                PolyLog.i("first-run disclosure accepted")
+                BiPrefs.setDisclosureAccepted(this@BiTranslationActivity, true)
+                BiLog.i("first-run disclosure accepted")
                 render()
             }
         }
@@ -129,58 +129,58 @@ class PolyTranslationActivity : Activity() {
     // ---------------- model management ----------------
 
     private fun renderManagement() {
-        title(getString(R.string.poly_models_title))
+        title(getString(R.string.blk_models_title))
 
         val unmetered = CheckBox(this).apply {
-            text = getString(R.string.poly_unmetered_only)
-            isChecked = PolyPrefs.unmeteredOnly(this@PolyTranslationActivity)
+            text = getString(R.string.blk_unmetered_only)
+            isChecked = BiPrefs.unmeteredOnly(this@BiTranslationActivity)
             setOnCheckedChangeListener { _, checked ->
-                PolyPrefs.setUnmeteredOnly(this@PolyTranslationActivity, checked)
+                BiPrefs.setUnmeteredOnly(this@BiTranslationActivity, checked)
             }
         }
         root.addView(unmetered, wide())
 
         val livePreview = CheckBox(this).apply {
-            text = getString(R.string.poly_live_preview)
-            isChecked = PolyPrefs.livePreview(this@PolyTranslationActivity)
+            text = getString(R.string.blk_live_preview)
+            isChecked = BiPrefs.livePreview(this@BiTranslationActivity)
             setOnCheckedChangeListener { _, checked ->
-                PolyPrefs.setLivePreview(this@PolyTranslationActivity, checked)
+                BiPrefs.setLivePreview(this@BiTranslationActivity, checked)
             }
         }
         root.addView(livePreview, wide())
-        hint(getString(R.string.poly_live_preview_hint))
+        hint(getString(R.string.blk_live_preview_hint))
 
         val incognito = CheckBox(this).apply {
-            text = getString(R.string.poly_allow_incognito)
-            isChecked = PolyPrefs.allowIncognitoApps(this@PolyTranslationActivity)
+            text = getString(R.string.blk_allow_incognito)
+            isChecked = BiPrefs.allowIncognitoApps(this@BiTranslationActivity)
             setOnCheckedChangeListener { _, checked ->
-                PolyPrefs.setAllowIncognitoApps(this@PolyTranslationActivity, checked)
+                BiPrefs.setAllowIncognitoApps(this@BiTranslationActivity, checked)
             }
         }
         root.addView(incognito, wide())
-        hint(getString(R.string.poly_allow_incognito_hint))
+        hint(getString(R.string.blk_allow_incognito_hint))
 
         val useStub = CheckBox(this).apply {
-            text = getString(R.string.poly_use_stub)
-            isChecked = PolyPrefs.engine(this@PolyTranslationActivity) == PolyPrefs.ENGINE_STUB
+            text = getString(R.string.blk_use_stub)
+            isChecked = BiPrefs.engine(this@BiTranslationActivity) == BiPrefs.ENGINE_STUB
             setOnCheckedChangeListener { _, checked ->
-                PolyPrefs.setEngine(
-                    this@PolyTranslationActivity,
-                    if (checked) PolyPrefs.ENGINE_STUB else PolyPrefs.ENGINE_MLKIT
+                BiPrefs.setEngine(
+                    this@BiTranslationActivity,
+                    if (checked) BiPrefs.ENGINE_STUB else BiPrefs.ENGINE_MLKIT
                 )
                 render()
             }
         }
         root.addView(useStub, wide())
 
-        if (PolyPrefs.engine(this) == PolyPrefs.ENGINE_STUB) {
-            hint(getString(R.string.poly_stub_active))
+        if (BiPrefs.engine(this) == BiPrefs.ENGINE_STUB) {
+            hint(getString(R.string.blk_stub_active))
             attribution()
             return
         }
 
-        heading(getString(R.string.poly_models_heading))
-        hint(getString(R.string.poly_models_size_note, MlKitEngine.APPROX_MODEL_MB))
+        heading(getString(R.string.blk_models_heading))
+        hint(getString(R.string.blk_models_size_note, MlKitEngine.APPROX_MODEL_MB))
 
         val listHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(listHolder, wide())
@@ -191,13 +191,13 @@ class PolyTranslationActivity : Activity() {
 
     private fun loadModelList(holder: LinearLayout) {
         holder.removeAllViews()
-        hintInto(holder, getString(R.string.poly_loading))
+        hintInto(holder, getString(R.string.blk_loading))
         scope.launch {
-            val engine = MlKitEngine(requireWifi = PolyPrefs.unmeteredOnly(this@PolyTranslationActivity))
+            val engine = MlKitEngine(requireWifi = BiPrefs.unmeteredOnly(this@BiTranslationActivity))
             val downloaded = withContext(Dispatchers.Default) { engine.downloadedLanguageTags() }
             engine.close()
             // Cache it so the keyboard can default the pair to a language the user actually has.
-            PolyPrefs.setKnownModelLanguages(this@PolyTranslationActivity, downloaded)
+            BiPrefs.setKnownModelLanguages(this@BiTranslationActivity, downloaded)
             holder.removeAllViews()
 
             // Downloaded first, then the rest. With 58 languages an unsorted list is unusable.
@@ -207,7 +207,7 @@ class PolyTranslationActivity : Activity() {
                         .thenBy { MlKitEngine.displayName(it) })
             }
             if (downloaded.isEmpty()) {
-                hintInto(holder, getString(R.string.poly_no_models_yet))
+                hintInto(holder, getString(R.string.blk_no_models_yet))
             }
             all.forEach { tag -> holder.addView(modelRow(tag, tag in downloaded, holder), wide()) }
         }
@@ -223,15 +223,15 @@ class PolyTranslationActivity : Activity() {
         }
         val status = TextView(this).apply {
             text = if (isDownloaded)
-                getString(R.string.poly_model_ready, MlKitEngine.APPROX_MODEL_MB)
-            else getString(R.string.poly_model_absent)
+                getString(R.string.blk_model_ready, MlKitEngine.APPROX_MODEL_MB)
+            else getString(R.string.blk_model_absent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             alpha = 0.7f
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(8), 0, dp(8), 0)
         }
         val action = Button(this).apply {
-            text = getString(if (isDownloaded) R.string.poly_delete else R.string.poly_download)
+            text = getString(if (isDownloaded) R.string.blk_delete else R.string.blk_download)
             setOnClickListener {
                 if (busy) return@setOnClickListener
                 if (isDownloaded) deleteModel(tag, holder) else downloadModel(tag, holder)
@@ -254,9 +254,9 @@ class PolyTranslationActivity : Activity() {
      */
     private fun downloadModel(tag: String, holder: LinearLayout) {
         busy = true
-        Toast.makeText(this, getString(R.string.poly_downloading, MlKitEngine.displayName(tag)), Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.blk_downloading, MlKitEngine.displayName(tag)), Toast.LENGTH_SHORT).show()
         scope.launch {
-            val engine = MlKitEngine(requireWifi = PolyPrefs.unmeteredOnly(this@PolyTranslationActivity))
+            val engine = MlKitEngine(requireWifi = BiPrefs.unmeteredOnly(this@BiTranslationActivity))
             var failure: String? = null
             engine.preparePair("en", tag).collect { state ->
                 when (state) {
@@ -267,7 +267,7 @@ class PolyTranslationActivity : Activity() {
             engine.close()
             busy = false
             failure?.let {
-                Toast.makeText(this@PolyTranslationActivity, getString(R.string.poly_download_failed, it), Toast.LENGTH_LONG).show()
+                Toast.makeText(this@BiTranslationActivity, getString(R.string.blk_download_failed, it), Toast.LENGTH_LONG).show()
             }
             loadModelList(holder)
         }
@@ -280,7 +280,7 @@ class PolyTranslationActivity : Activity() {
             val ok = engine.deleteModel(tag)
             engine.close()
             busy = false
-            if (!ok) Toast.makeText(this@PolyTranslationActivity, R.string.poly_delete_failed, Toast.LENGTH_LONG).show()
+            if (!ok) Toast.makeText(this@BiTranslationActivity, R.string.blk_delete_failed, Toast.LENGTH_LONG).show()
             loadModelList(holder)
         }
     }
@@ -290,7 +290,7 @@ class PolyTranslationActivity : Activity() {
     /** Required by Google's ML Kit terms when translation is offered in an app. */
     private fun attribution() {
         val t = TextView(this).apply {
-            text = getString(R.string.poly_mlkit_attribution)
+            text = getString(R.string.blk_mlkit_attribution)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             alpha = 0.7f
             setPadding(0, dp(16), 0, dp(8))

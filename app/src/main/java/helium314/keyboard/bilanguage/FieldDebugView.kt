@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.content.Context
 import android.graphics.Typeface
@@ -17,7 +17,7 @@ import helium314.keyboard.latin.settings.Settings
 import helium314.keyboard.latin.utils.prefs
 
 /**
- * Phase 1 instrumentation: the debug overlay that shows what PolyBoard thinks the current field is.
+ * Phase 1 instrumentation: the debug overlay that shows what BiLanguageKeyboard thinks the current field is.
  *
  * Mounted through `SuggestionStripView.setExternalSuggestionView`, which is upstream's existing
  * mechanism for putting an arbitrary view in the candidates strip (emoji search and the clipboard
@@ -32,7 +32,7 @@ object FieldDebugView {
 
     @JvmStatic
     fun isEnabled(context: Context): Boolean =
-        context.prefs().getBoolean(DebugSettings.PREF_POLY_FIELD_OVERLAY, Defaults.PREF_POLY_FIELD_OVERLAY)
+        context.prefs().getBoolean(DebugSettings.PREF_BLK_FIELD_OVERLAY, Defaults.PREF_BLK_FIELD_OVERLAY)
 
     @JvmStatic
     fun create(context: Context, editorInfo: EditorInfo?): View {

@@ -1,4 +1,5 @@
 import com.android.build.api.variant.ApplicationVariant
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -12,7 +13,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "it.hristov.polyboard"
+        applicationId = "it.hristov.bilanguagekeyboard"
         minSdk = 26
         targetSdk = 36
         versionCode = 4006
@@ -24,8 +25,31 @@ android {
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
 
+    /*
+     * Release signing. Credentials come from keystore.properties, which is gitignored and never
+     * committed: a signing key in a public repo would let anyone ship an "update" that installs over
+     * this app. Without that file the release build simply stays unsigned, so cloning and building
+     * still works for anyone else.
+     */
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties().apply {
+        if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use { load(it) }
+    }
+
+    signingConfigs {
+        if (keystoreProperties.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystoreProperties.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = false
             isDebuggable = false
@@ -67,7 +91,7 @@ android {
             }
             variant.outputs.forEach { output ->
                 if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
-                    output.outputFileName = "PolyBoard_${defaultConfig.versionName}-${variant.buildType}.apk"
+                    output.outputFileName = "BiLanguageKeyboard_${defaultConfig.versionName}-${variant.buildType}.apk"
                 }
             }
         }

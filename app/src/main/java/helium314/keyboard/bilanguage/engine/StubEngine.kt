@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard.engine
+package helium314.keyboard.bilanguage.engine
 
-import helium314.keyboard.polyboard.PolyLog
+import helium314.keyboard.bilanguage.BiLog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -37,7 +37,7 @@ class StubEngine(private val latencyMs: Long = 120L) : TranslationEngine {
     }
 
     override fun close() {
-        PolyLog.d("StubEngine.close()")
+        BiLog.d("StubEngine.close()")
     }
 
     companion object {

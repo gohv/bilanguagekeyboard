@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
-import helium314.keyboard.polyboard.engine.LanguageIdentifier
-import helium314.keyboard.polyboard.engine.TranslationEngine
+import helium314.keyboard.bilanguage.engine.LanguageIdentifier
+import helium314.keyboard.bilanguage.engine.TranslationEngine
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -128,7 +128,7 @@ class TranslationController(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                PolyLog.e("preview failed", e)
+                BiLog.e("preview failed", e)
                 setState(TranslateUiState.Idle)
             }
         }
@@ -183,7 +183,7 @@ class TranslationController(
             return
         }
         if (current.text != pending.snapshot.text) {
-            PolyLog.w("preview rejected: field changed since it was computed")
+            BiLog.w("preview rejected: field changed since it was computed")
             preview = null
             setState(TranslateUiState.Failed("Text changed, translate again"))
             return
@@ -195,7 +195,7 @@ class TranslationController(
         }
         undo = UndoSnapshot(current, pending.translated)
         preview = null
-        PolyLog.i("preview committed ${PolyLog.redact(pending.translated)}")
+        BiLog.i("preview committed ${BiLog.redact(pending.translated)}")
         setState(TranslateUiState.Committed(pending.from, pending.to))
     }
 
@@ -206,7 +206,7 @@ class TranslationController(
      */
     fun translateNow(io: FieldIo, source: String, target: String) {
         if (_state.value is TranslateUiState.Disabled) {
-            PolyLog.w("translate requested in a blocked field, ignoring")
+            BiLog.w("translate requested in a blocked field, ignoring")
             return
         }
         cancelInFlight()
@@ -219,7 +219,7 @@ class TranslationController(
                 throw e
             } catch (e: Throwable) {
                 // Never swallow: a failed translation must fail visibly (spec section 11).
-                PolyLog.e("translate failed", e)
+                BiLog.e("translate failed", e)
                 setState(TranslateUiState.Failed("Translation failed"))
             }
         }
@@ -261,7 +261,7 @@ class TranslationController(
         if (!eng.isPairReady(source, target)) {
             // Deliberately does NOT start a download. Spec section 11: never download silently. The UI
             // turns this state into something tappable that opens the model management screen.
-            PolyLog.i("model missing for $source->$target, not downloading without being asked")
+            BiLog.i("model missing for $source->$target, not downloading without being asked")
             setState(TranslateUiState.ModelMissing(source, target))
             return
         }
@@ -269,7 +269,7 @@ class TranslationController(
         // Spec 6.2 idempotence. Undetermined (null) means proceed with the configured source.
         val detected = withContext(ioDispatcher) { ident.identify(sourceText) }
         if (detected != null && detected.equals(target, ignoreCase = true)) {
-            PolyLog.i("6.2 no-op: already in $target (${PolyLog.redact(sourceText)})")
+            BiLog.i("6.2 no-op: already in $target (${BiLog.redact(sourceText)})")
             setState(TranslateUiState.AlreadyInTarget(target))
             return
         }
@@ -282,13 +282,13 @@ class TranslationController(
         val elapsedMs = (System.nanoTime() - started) / 1_000_000
 
         if (result == null) {
-            PolyLog.w("translate timed out after ${timeoutMs}ms, field left untouched")
+            BiLog.w("translate timed out after ${timeoutMs}ms, field left untouched")
             setState(TranslateUiState.Failed("Translation timed out"))
             return
         }
 
         val translated = result.getOrElse { e ->
-            PolyLog.e("engine ${eng.id} failed after ${elapsedMs}ms", e)
+            BiLog.e("engine ${eng.id} failed after ${elapsedMs}ms", e)
             setState(TranslateUiState.Failed("Translation failed"))
             return
         }
@@ -307,9 +307,9 @@ class TranslationController(
         }
 
         undo = UndoSnapshot(original, translated)
-        PolyLog.i(
+        BiLog.i(
             "translated $source->$target via ${eng.id} in ${elapsedMs}ms " +
-                "src=${PolyLog.redact(sourceText)} out=${PolyLog.redact(translated)}"
+                "src=${BiLog.redact(sourceText)} out=${BiLog.redact(translated)}"
         )
         setState(TranslateUiState.Committed(source, target))
     }
@@ -337,14 +337,14 @@ class TranslationController(
         io.setCursor(snap.original.cursor)
         undo = null
         setState(TranslateUiState.Idle)
-        PolyLog.i("undo restored ${PolyLog.redact(snap.original.text)}")
+        BiLog.i("undo restored ${BiLog.redact(snap.original.text)}")
     }
 
     private suspend fun ensureEngine(): TranslationEngine =
         engine ?: withContext(ioDispatcher) {
             engineFactory().also {
                 engine = it
-                PolyLog.i("engine ${it.id} initialised lazily")
+                BiLog.i("engine ${it.id} initialised lazily")
             }
         }
 
@@ -365,7 +365,7 @@ class TranslationController(
         identifier = null
         undo = null
         setState(TranslateUiState.Idle)
-        PolyLog.i("controller closed, engine dropped")
+        BiLog.i("controller closed, engine dropped")
     }
 
     companion object {

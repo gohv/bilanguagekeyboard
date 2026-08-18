@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard.engine
+package helium314.keyboard.bilanguage.engine
 
 import kotlinx.coroutines.flow.Flow
 

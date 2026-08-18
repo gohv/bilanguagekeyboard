@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.text.InputType
 import android.view.inputmethod.EditorInfo
@@ -78,7 +78,7 @@ object FieldGate {
      * Why `IME_FLAG_NO_PERSONALIZED_LEARNING` is overridable while password gating is not.
      *
      * The flag means "do not learn from this content" — do not fold it into dictionaries, prediction
-     * or personalisation. PolyBoard never persists typed text at all (spec 6.4: no history, no
+     * or personalisation. BiLanguageKeyboard never persists typed text at all (spec 6.4: no history, no
      * on-disk cache, and the log carries lengths and hashes rather than text), so the flag's actual
      * request is honoured unconditionally whether or not translation runs.
      *
@@ -92,5 +92,5 @@ object FieldGate {
      * Molly, set this flag on their message box, and that box is an ordinary multiline text field in
      * every other respect. See DECISIONS.md.
      */
-    const val INCOGNITO_RATIONALE = "no-personalized-learning is about learning, which PolyBoard never does"
+    const val INCOGNITO_RATIONALE = "no-personalized-learning is about learning, which BiLanguageKeyboard never does"
 }

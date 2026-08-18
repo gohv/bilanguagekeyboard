@@ -185,3 +185,40 @@ comes back at `EDITOR_CONTENTS_CACHE_SIZE` (1024), because at the cap a full rea
 are indistinguishable, and translating half a message while computing the replace from the wrong
 length is the worst failure this feature has available. Short messages, which is nearly all of them,
 now work in apps that would previously have failed outright.
+
+## 2026-08-18 — Distribution changed: public GitHub repo and APK releases
+
+Supersedes the earlier "personal sideload only" decision.
+
+**The GPL-3.0 obligation is now live, and is satisfied by the publication itself.** The repository
+contains the complete corresponding source of the fork, the APK releases are built from it, upstream's
+README and licences are preserved, and `CHANGES-FROM-UPSTREAM.md` states what was modified as GPL-3.0
+requires of modified versions.
+
+Consequences accepted:
+
+- No privacy policy is required for GitHub distribution. One would be required for Google Play.
+- The Play annual target-API requirement does not apply. `targetSdk` stays 36 regardless.
+- F-Droid would be a problem, not because of the licence but because ML Kit is a proprietary Google
+  binary. F-Droid would reject or heavily flag it. That is another argument for the Phase 7 ONNX
+  engine, which would remove both the blob and the `INTERNET` permission.
+
+**Signing.** A self-signed 4096-bit RSA key was generated for releases. The keystore lives *outside*
+the repository and `keystore.properties`, `*.keystore`, `*.jks` and `*.p12` are gitignored. A signing
+key committed to a public repo would let anyone publish an "update" that installs over this app. The
+certificate SHA-256 is published in the release notes so users can verify continuity between updates.
+Losing the keystore means future releases cannot upgrade existing installs in place.
+
+**Personal information.** The engineering docs originally named the specific apps used for testing,
+including a banking app and a mail provider, plus the exact device model. Those were generalised
+before publishing, because a public repository under a personal account should not double as an
+inventory of the maintainer's phone. Molly is still named: supporting it is a documented feature, not
+an incidental detail. Git author identity is inherently public in commit metadata.
+
+## 2026-08-18 — Renamed to BiLanguage Keyboard
+
+`applicationId` `it.hristov.bilanguagekeyboard`, display name "BiLanguage Keyboard", log tag
+`BiLangKb`, internal package `helium314.keyboard.bilanguage`, preference keys prefixed `blk_`.
+
+The preference-key rename is safe specifically because the `applicationId` changed at the same time:
+the new package cannot see the old app's preferences anyway, so there was no migration to preserve.

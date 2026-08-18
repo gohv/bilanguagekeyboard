@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.content.Context
 import androidx.core.content.edit
@@ -30,7 +30,7 @@ class LanguagePairStore(private val context: Context) {
     fun setTargetFor(packageName: String?, target: String) {
         if (packageName.isNullOrEmpty()) return
         context.prefs().edit { putString(PREF_TARGET_PREFIX + packageName, target) }
-        PolyLog.i("pair target for $packageName set to $target")
+        BiLog.i("pair target for $packageName set to $target")
     }
 
     fun clearTargetFor(packageName: String?) {
@@ -72,6 +72,6 @@ class LanguagePairStore(private val context: Context) {
     }
 
     companion object {
-        const val PREF_TARGET_PREFIX = "poly_target_for_app_"
+        const val PREF_TARGET_PREFIX = "blk_target_for_app_"
     }
 }

@@ -18,8 +18,8 @@ public final class DebugSettings {
 
     public static final String PREF_SHOW_SUGGESTION_INFOS = "show_suggestion_infos";
 
-    /// PolyBoard: show the decoded field type in the candidates strip (spec phase 1)
-    public static final String PREF_POLY_FIELD_OVERLAY = "poly_field_overlay";
+    /// BiLanguageKeyboard: show the decoded field type in the candidates strip (spec phase 1)
+    public static final String PREF_BLK_FIELD_OVERLAY = "blk_field_overlay";
     private DebugSettings() {
         // This class is not publicly instantiable.
     }

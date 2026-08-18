@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 /** What the toolbar key and candidates strip should be showing. */
 sealed interface TranslateUiState {

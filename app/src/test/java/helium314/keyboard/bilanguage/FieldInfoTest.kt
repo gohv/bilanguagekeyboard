@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package helium314.keyboard.polyboard
+package helium314.keyboard.bilanguage
 
 import android.text.InputType
 import android.view.inputmethod.EditorInfo
@@ -112,10 +112,10 @@ class FieldInfoTest {
 
     @Test fun `redact never reveals the text`() {
         val secret = "my password is hunter2"
-        val out = PolyLog.redact(secret)
+        val out = BiLog.redact(secret)
         assertTrue(out.contains("len=${secret.length}"))
         assertTrue(!out.contains("hunter2"))
-        assertEquals("null", PolyLog.redact(null))
-        assertEquals("len=0", PolyLog.redact(""))
+        assertEquals("null", BiLog.redact(null))
+        assertEquals("len=0", BiLog.redact(""))
     }
 }

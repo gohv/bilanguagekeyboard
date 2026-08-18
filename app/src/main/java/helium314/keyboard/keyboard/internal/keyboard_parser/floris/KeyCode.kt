@@ -193,7 +193,7 @@ object KeyCode {
     const val SEND_INTENT_TWO =            -20001
     const val SEND_INTENT_THREE =          -20002
 
-    // PolyBoard. Deliberately far below upstream's ranges (last used: -20002) so rebases do not collide.
+    // BiLanguageKeyboard. Deliberately far below upstream's ranges (last used: -20002) so rebases do not collide.
     const val TRANSLATE =                 -30000
     const val TRANSLATE_PAIR =            -30001
     const val TRANSLATE_PICKER =          -30002

@@ -595,10 +595,10 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         if (DEBUG_PREVIOUS_TEXT) checkConsistencyForDebug();
     }
 
-    // ---- PolyBoard additions ----
+    // ---- BiLanguageKeyboard additions ----
 
     /**
-     * PolyBoard: delete around the cursor in both directions, which upstream has no wrapper for
+     * BiLanguageKeyboard: delete around the cursor in both directions, which upstream has no wrapper for
      * (only {@link #deleteTextBeforeCursor(int)}).
      *
      * <p>Implemented as two calls rather than one {@code deleteSurroundingText(before, after)} on
@@ -623,7 +623,7 @@ public final class RichInputConnection implements PrivateCommandPerformer {
     }
 
     /**
-     * PolyBoard: the complete field contents, not the {@link Constants#EDITOR_CONTENTS_CACHE_SIZE}
+     * BiLanguageKeyboard: the complete field contents, not the {@link Constants#EDITOR_CONTENTS_CACHE_SIZE}
      * window that {@link #getTextBeforeCursor(int, int)} is limited to.
      *
      * <p>This matters because that cap is 1024 characters and translation has to handle longer
@@ -646,7 +646,7 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         }
     }
 
-    // ---- end PolyBoard additions ----
+    // ---- end BiLanguageKeyboard additions ----
 
     public void performEditorAction(final int actionId) {
         mIC = mParent.getCurrentInputConnection();

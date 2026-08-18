@@ -1,216 +1,140 @@
-# PolyBoard
+# BiLanguage Keyboard
 
-A translate-as-you-type Android keyboard. You type in one language, the other language is
-what lands in the target app's text field. Translation runs on the device.
+An Android keyboard that translates what you type, on the device. You write in one language, tap one
+key, and the other language replaces your text in whatever app you are in.
 
-PolyBoard is a fork of [HeliBoard](https://github.com/Helium314/HeliBoard), which is a fork
-of OpenBoard, which derives from AOSP LatinIME. Upstream's README follows below this
-section, unmodified.
+It is a fork of [HeliBoard](https://github.com/Helium314/HeliBoard), so it is a complete, ordinary
+keyboard first: layouts for dozens of languages, dictionaries, autocorrect, clipboard history,
+one-handed and split modes. The translation is added on top of that, not bolted onto something
+minimal.
 
-## License, read this first
+## Licence, and where the source is
 
-**HeliBoard is GPL-3.0. PolyBoard is therefore GPL-3.0.**
+**GPL-3.0.** HeliBoard is GPL-3.0, so this fork is too.
 
-Building and using this for yourself carries no distribution obligation. **The moment this
-APK is given to anyone else** — a Play or F-Droid listing, a GitHub release, or simply
-handing the file to a friend — **the complete corresponding source of this fork must be
-published under GPL-3.0.** That includes every change in this repository, not just the
-parts considered interesting.
+Publishing this APK is distribution, which under the GPL means the complete corresponding source must
+be available under the same licence. **This repository is that source** — the entire fork, not a
+subset. Every release is built from the tagged commit it is published against.
 
-Do not add proprietary components without first resolving the licence conflict. Current
-distribution intent is personal sideload only, which is why the obligation has not been
-triggered yet. See [DECISIONS.md](DECISIONS.md).
+Changes made to HeliBoard are described in [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md), and
+upstream's own README is preserved in [UPSTREAM-README.md](UPSTREAM-README.md).
 
-## Differences from upstream HeliBoard
+Not affiliated with, endorsed by, or connected to Google, Signal, HeliBoard's maintainers, or any app
+mentioned in the docs.
 
-| | HeliBoard | PolyBoard |
-|---|---|---|
-| `applicationId` | `helium314.keyboard` | `it.hristov.polyboard` |
-| `minSdk` | 21 | 26 |
-| Network | no `INTERNET` permission, 100% offline | `INTERNET` for one-time translation model download (**now present**) |
-| Translation | none | on-device, Google ML Kit, 58 languages |
+## The honest privacy summary
 
-Installs alongside real HeliBoard; the two do not conflict.
+A keyboard sees everything you type, so vague claims are worthless. Specifically:
 
-### On the "100% offline" claim
-
-Upstream's README below says HeliBoard "does not use internet permission, and thus is 100%
-offline." **That is true of upstream and is no longer true of PolyBoard.** As of Phase 3 this fork
-declares `android.permission.INTERNET`. Being straight about this matters more than inheriting a nice
-claim: a keyboard is the single most sensitive app on a phone, and a keyboard that asks for
-network access is one you have to actively trust about keylogging.
-
-What is accurate for PolyBoard:
-
-- Translation inference runs on this device. Typed text is never sent anywhere.
-- The network is touched for exactly one purpose: downloading translation models, once per
-  language, on request. That download is logged so the claim is auditable. It looks like this:
+- **Translation runs on this device.** Your text is not sent anywhere to be translated.
+- **The app declares `INTERNET`.** It is used for exactly one thing: downloading a translation model,
+  once per language, when you tap Download. Nothing else in the app touches the network.
+- **That download is logged**, so the claim above is checkable rather than trusted:
 
   ```
-  PolyBoard: MODEL DOWNLOAD starting for en<->fr (requireWifi=true) - this is the only network use
-  PolyBoard: MODEL DOWNLOAD complete for en<->fr
+  BiLangKb: MODEL DOWNLOAD starting for en<->fr (requireWifi=true) - this is the only network use
+  BiLangKb: MODEL DOWNLOAD complete for en<->fr
   ```
 
-  Verify the rest with `adb logcat -s PolyBoard:V` while typing: translations are logged as
+  Watch everything the keyboard does with `adb logcat -s BiLangKb:V`. Translations are logged as
   lengths and short hashes, never as text.
-- Verified offline: with a model downloaded and the phone in aeroplane mode,
-  "Thank you" translated to "Merci" in 11ms.
-- No analytics, no crash reporting, no ads, no third-party network libraries.
-- Typed text is never written to disk.
+- **Nothing you type is written to disk.** No translation history, no on-disk cache.
+- **No analytics, no crash reporting service, no ads.**
+- Once a model is downloaded, translation works with the network off. Verified in aeroplane mode.
 
-If that tradeoff turns out to be unacceptable, Phase 7 of the project spec replaces the
-engine with bundled Opus-MT models and removes the `INTERNET` permission entirely, making
-the claim verifiable from the manifest rather than promised in a README. Note that Phase 7
-would also cut the supported language count from 58 to roughly a handful — see
-[DECISIONS.md](DECISIONS.md).
+Upstream HeliBoard declares no `INTERNET` permission at all. If that property matters more to you
+than translating, use upstream — that is a completely reasonable choice, and it is why the difference
+is stated plainly here rather than buried.
 
-### Build
+## Install
 
-macOS on Apple Silicon, no Android Studio. See [docs/toolchain-setup.md](docs/toolchain-setup.md).
+Grab the APK from [Releases](../../releases), install it, then enable it as a keyboard:
+Settings → General management → Keyboard list and default.
+
+It installs alongside HeliBoard and any other keyboard; nothing is replaced.
+
+Signed with a self-signed key, as any sideloaded app is. The certificate SHA-256 is published in each
+release's notes, so you can check that an update came from the same source:
+
+```bash
+apksigner verify --print-certs BiLanguageKeyboard-*.apk
+```
+
+## Using it
+
+**First run.** Long-press the translate key (the toolbar key that looks like 文A) to open the
+translation screen. It explains what the network permission is for, then lets you download languages.
+Nothing downloads until you ask, and by default only over Wi-Fi.
+
+Download the languages you type in **and English** — every model translates between its language and
+English, so English is needed even for, say, French to Bulgarian.
+
+**Translating.** Type normally, then tap the translate key. Your text is replaced by the translation
+in one atomic edit. An Undo button appears in the suggestion strip; it restores your original text
+exactly.
+
+**The language chip** next to it reads e.g. `EN → FR`. Tap it to swap direction, long-press for the
+language screen. The chosen target is remembered per app, because in practice one app or one contact
+means one language.
+
+**Live translation (optional).** Turn on "Show translation instead of word suggestions" and the
+translation appears in the suggestion strip as you type; tap it to use it. Be aware of the tradeoff:
+while it is showing you do not get word suggestions or autocorrect for the text you are still
+writing, and it runs many more translations than pressing the key does. Off by default.
+
+**Both toolbar keys are removable** through HeliBoard's normal toolbar customisation if you do not
+want them.
+
+## Where translation is switched off on purpose
+
+Translation is disabled, and the key greyed out, in:
+
+- password fields, including web password fields
+- email address fields
+- URL and web-address fields, including browser address bars
+- phone number, numeric and date/time fields
+
+This is not configurable. Translating a password would move a secret through a translation engine and
+into a message box.
+
+Apps that request an "incognito keyboard" (Signal, and forks such as Molly) are a separate case, and
+**are** translated by default. That flag asks keyboards not to *learn* from your text; this keyboard
+never stores your text at all, so the request is honoured either way. If you would rather it stayed
+out of those apps entirely, there is a switch for it in the translation screen.
+
+## Known limitations, stated up front
+
+- Translation quality is Google's on-device quality. Fine for ordinary messages, weaker than an online
+  translator. Language pairs that do not include English are routed through English internally, which
+  costs accuracy.
+- Each language model is roughly 30 MB. The app cannot report exact size on disk, because ML Kit does
+  not expose it.
+- There is no download progress bar, because ML Kit reports only success or failure. A fabricated
+  percentage would be worse than none.
+- In a small number of apps whose text field does not support `getExtractedText`, very long text
+  (over about 1000 characters) will refuse to translate rather than risk translating only part of it.
+- URLs, @mentions and code spans are **not yet** protected from being translated. That work is
+  planned; until then, check the result before sending if your message contains them.
+- Glide typing is absent, as in upstream: it needs a closed-source library that is not bundled.
+
+## Build
+
+macOS or Linux, no Android Studio required. See [docs/toolchain-setup.md](docs/toolchain-setup.md)
+for the exact setup this was built with.
 
 ```bash
 ./gradlew assembleDebug
-adb install -r app/build/outputs/apk/debug/PolyBoard_4.0-dev1-debug.apk
 ```
 
----
+```bash
+./gradlew testRunTestsUnitTest
+```
 
-# HeliBoard
-HeliBoard is a privacy-conscious and customizable open-source keyboard, based on AOSP / OpenBoard.
-Does not use internet permission, and thus is 100% offline.
+A release build is unsigned unless you provide your own `keystore.properties`; that file is
+gitignored and no signing key is in this repository.
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/helium314.keyboard/)
-[<img src="https://user-images.githubusercontent.com/663460/26973090-f8fdc986-4d14-11e7-995a-e7c5e79ed925.png" alt="Get APK from GitHub" height="80">](https://github.com/HeliBorg/HeliBoard/releases/latest)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" height="80">](https://apt.izzysoft.de/fdroid/index/apk/helium314.keyboard)
+## Credits
 
-## Table of Contents
-
-- [Features](#features)
-- [Contributing](#contributing-)
-   * [Reporting Issues](#reporting-issues)
-   * [Translations](#translations)
-   * [To Community](#to-community)
-   * [Code Contribution](CONTRIBUTING.md)
-- [Links](#links)
-- [License](#license)
-- [Credits](#credits)
-  * [Funding](#funding)
-
-# Features
-<ul>
-  <li>Add dictionaries for suggestions and spell check</li>
-  <ul>
-    <li>build your own, or get them  <a href="https://codeberg.org/Helium314/aosp-dictionaries#dictionaries">here</a> (quality may vary)</li>
-    <li>additional dictionaries for emojis or scientific symbols can be used to provide suggestions (similar to "emoji search")</li>
-    <li>note that for Korean layouts, suggestions only work using <a href="https://github.com/openboard-team/openboard/commit/83fca9533c03b9fecc009fc632577226bbd6301f">this dictionary</a>, the tools in the dictionary repository are not able to create working dictionaries</li>
-  </ul>
-  <li>Customize keyboard themes (style, colors and background image)</li>
-  <li>Emoji search (inline and separate, requires <a href="https://codeberg.org/Helium314/aosp-dictionaries">emoji dictionary</a>)</li>
-  <ul>
-    <li>can follow the system's day/night setting on Android 10+ (and on some versions of Android 9)</li>
-    <li>can follow dynamic colors for Android 12+</li>
-  </ul>
-  <li>Customize keyboard <a href="https://github.com/HeliBorg/HeliBoard/blob/main/layouts.md">layouts</a> (only available when disabling <i>use system languages</i>)</li>
-  <li>Customize special layouts, like symbols, number,  or functional key layout</li>
-  <li>Multilingual typing</li>
-  <li>Glide typing (<i>only with closed source library</i> ☹️)</li>
-  <ul>
-    <li>library not included in the app, as there is no compatible open source library available</li>
-    <li>can be extracted from GApps packages ("<i>swypelibs</i>"), or downloaded <a href="https://github.com/erkserkserks/openboard/tree/46fdf2b550035ca69299ce312fa158e7ade36967/app/src/main/jniLibs">here</a> (click on the file and then "raw" or the tiny download button)</li>
-  </ul>
-  <li>Clipboard history</li>
-  <li>One-handed mode</li>
-  <li>Split keyboard</li>
-  <li>Number pad</li>
-  <li>Backup and restore your settings and learned word / history data</li>
-</ul>
-
-For [FAQ](https://github.com/HeliBorg/HeliBoard/wiki/FAQ), [hidden features](https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features) and more information about the app and features, please visit the [wiki](https://github.com/HeliBorg/HeliBoard/wiki)
-
-# Contributing ❤
-
-## Reporting Issues
-
-Whether you encountered a bug, or want to see a new feature in HeliBoard, you can contribute to the project by opening a new issue [here](https://github.com/HeliBorg/HeliBoard/issues). Your help is always welcome!
-
-Before opening a new issue, be sure to check the following:
- - **Does the issue already exist?** Make sure a similar issue has not been reported by browsing [existing issues](https://github.com/HeliBorg/HeliBoard/issues?q=). Please search open and closed issues. In case of feature requests you could also check the [FAQ](https://github.com/HeliBorg/HeliBoard/wiki/FAQ) and [hidden features](https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features).
- - **Is the issue still relevant?** Make sure your issue is not already fixed in the latest version of HeliBoard.
- - **Is it a single topic?** If you want to suggest multiple things, open multiple issues.
- - **Did you use the issue template?** It is important to make life of our kind contributors easier by avoiding issues that miss key information to their resolution.
- - **Is it written by a human?** Do not use LLMs or similar to generate issues. Having LLMs help with translation or similar is acceptable, but must be disclosed. See also [AI_USAGE.md](AI_USAGE.md)
-Note that issues that that ignore part of the issue template will likely get treated with very low priority, as often they are needlessly hard to read or understand (e.g. huge screenshots, not providing a proper description, or addressing multiple topics). Blatant violation of the guidelines may result in the issue getting closed.
-
-If you're interested, you can read the following useful text about effective bug reporting (a bit longer read): https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
-
-## Translations
-Translations can be added using [Weblate](https://translate.codeberg.org/projects/heliboard/). You will need an account to update translations and add languages. Add the language you want to translate to in Languages -> Manage translated languages in the top menu bar.
-Updating translations in a PR will not be accepted, as it may cause conflicts with Weblate translations.
-
-Some notes on translations
-* when translating metadata, translating the changelogs is rather useless. It's available as it was requested by translators.
-* the `hidden_features_message` is horrible to translate with Weblate, and serves little benefit as it's just a copy of what's already in the wiki: https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features. It's been made available in the app on user request/contribution.
-
-## To Community
-There is the [discussions on GitHub](https://github.com/HeliBorg/HeliBoard/discussions), or if you prefer a more open network there is [Lemmy](https://lemmy.world/c/Heliboard).
-You can share your themes, layouts and dictionaries with other people:
-* Themes can be saved and loaded using the menu on top-right in the _adjust colors_ screen
-  * you can share custom colors in a separate [discussion section](https://github.com/HeliBorg/HeliBoard/discussions/categories/custom-colors)
-  * there are theme collections available at [Star-Trowa/heliboard-themes](https://github.com/Star-Trowa/heliboard-themes) and [PickleHik3/droid-tings](https://github.com/PickleHik3/droid-tings)
-* Custom keyboard layouts are text files whose content you can edit, copy and share
-  * this applies to main keyboard layouts and to special layouts adjustable in advanced settings
-  * see [layouts.md](layouts.md) for details
-  * you can share custom layouts in a separate [discussion section](https://github.com/HeliBorg/HeliBoard/discussions/categories/custom-layout)
-  * [Roccobot's Layout Maker](https://roccobot.github.io/HeliBoard-RLM/) is a browser-based editor for json layout files
-* Creating dictionaries is a little more work
-  * first you will need a wordlist, as described [here](https://codeberg.org/Helium314/aosp-dictionaries/src/branch/main/wordlists/sample.combined) and in the repository readme
-  * the you need to compile the dictionary using [external tools](https://github.com/remi0s/aosp-dictionary-tools)
-  * the resulting file (and ideally the wordlist too) can be shared with other users
-  * note that there will not be any further dictionaries added to this app, but you can add dictionaries to the [dictionaries repository](https://codeberg.org/Helium314/aosp-dictionaries)
-
-## Code Contribution
-See [Contribution Guidelines](CONTRIBUTING.md)
-
-# Links
-* Info
-  * [Wiki](https://github.com/HeliBorg/HeliBoard/wiki), including FAQ, help on customizing layouts, and gesture data gathering
-  * [Layout documentation](layouts.md) (more technical info regarding layout customization)
-  * [For creating custom dictionaries](https://codeberg.org/Helium314/aosp-dictionaries#wordlist-information) (see also top of the linked readme)
-* Community
-  * [Lemmy](https://lemmy.world/c/Heliboard)
-  * [Reddit](https://www.reddit.com/r/HeliBoard)
-  * GitHub [discussions](https://github.com/HeliBorg/HeliBoard/discussions)
-* Other
-  * [Translations](https://translate.codeberg.org/projects/heliboard/)
-  * [Dictionaries](https://codeberg.org/Helium314/aosp-dictionaries)
-  * [k3lp](https://codeberg.org/k3lp/k3lp) is a WIP library for keyboard layout parsing that will be implemented in HeliBoard when ready (created by [FlorisBoard](https://github.com/florisboard/florisboard/) maintainers)
-  * [swipe-o-scope](https://codeberg.org/eclexic/swipe-o-scope) for visualizing gesture data as created when using gesture data gathering
-
-# License
-
-HeliBoard (as a fork of OpenBoard) is licensed under GNU General Public License v3.0.
-
- > Permissions of this strong copyleft license are conditioned on making available complete source code of licensed works and modifications, which include larger works using a licensed work, under the same license. Copyright and license notices must be preserved. Contributors provide an express grant of patent rights.
-
-See repo's [LICENSE](/LICENSE) file.
-
-Since the app is based on Apache 2.0 licensed AOSP Keyboard, an [Apache 2.0](LICENSE-Apache-2.0) license file is provided.
-The icon is licensed under [Creative Commons BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). A [license file](LICENSE-CC-BY-SA-4.0) is also included.
-
-# Credits
-- Icon by [Fabian OvrWrt](https://github.com/FabianOvrWrt) with contributions from [The Eclectic Dyslexic](https://github.com/the-eclectic-dyslexic)
-- [OpenBoard](https://github.com/openboard-team/openboard)
-- [AOSP Keyboard](https://android.googlesource.com/platform/packages/inputmethods/LatinIME/)
-- [LineageOS](https://review.lineageos.org/admin/repos/LineageOS/android_packages_inputmethods_LatinIME)
-- [Simple Keyboard](https://github.com/rkkr/simple-keyboard)
-- [Indic Keyboard](https://gitlab.com/indicproject/indic-keyboard)
-- [FlorisBoard](https://github.com/florisboard/florisboard/)
-- Our [contributors](https://github.com/HeliBorg/HeliBoard/graphs/contributors)
-
-## Funding
-
-This project is funded through [NGI Mobifree Fund](https://nlnet.nl/mobifree), a fund established by [NLnet](https://nlnet.nl) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu) program. Learn more at the [NLnet project page](https://nlnet.nl/project/GestureTyping).
-
-[<img src="https://nlnet.nl/logo/banner.png" alt="NLnet foundation logo" width="20%" />](https://nlnet.nl)
-
-Further the project benefits from donations provided by many users (thank you all!).
+- [HeliBoard](https://github.com/Helium314/HeliBoard) by Helium314 and contributors, GPL-3.0
+- [OpenBoard](https://github.com/openboard-team/openboard), and AOSP LatinIME before it, Apache-2.0
+- Translation by Google ML Kit, running on device
