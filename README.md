@@ -27,8 +27,8 @@ mentioned in the docs.
 A keyboard sees everything you type, so vague claims are worthless. Specifically:
 
 - **Translation runs on this device.** Your text is not sent anywhere to be translated.
-- **The app declares `INTERNET`.** It is used for exactly one thing: downloading a translation model,
-  once per language, when you tap Download. Nothing else in the app touches the network.
+- **The app declares `INTERNET`.** It is used by the Google ML Kit option to download a translation
+  model when you tap Download. Local LLM mode does not use the network: its GGUF is user-imported.
 - **That download is logged**, so the claim above is checkable rather than trusted:
 
   ```
@@ -63,8 +63,14 @@ apksigner verify --print-certs BiLanguageKeyboard-*.apk
 ## Using it
 
 **First run.** Long-press the translate key (the toolbar key that looks like 文A) to open the
-translation screen. It explains what the network permission is for, then lets you download languages.
-Nothing downloads until you ask, and by default only over Wi-Fi.
+translation screen. Choose either Google ML Kit or Local LLM. Nothing downloads until you ask, and
+ML Kit downloads use Wi-Fi by default.
+
+**Local LLM.** Download `keyboard-translator-en-fr-Q4_K_M.gguf` from the private model repository,
+copy it to the phone, choose **Local LLM** in the translation screen, and tap **Import Q4_K_M GGUF**.
+The picker copies it into app-private storage after verifying its exact 398 MB size and
+SHA-256 (`74adde7ba961f85b0bbc31a7061bf2375f87015207fe7cf82273a54c13f148e9`). It supports only
+English ↔ French. The model is loaded by llama.cpp in a separate app process on first translation.
 
 Download the languages you type in **and English** — every model translates between its language and
 English, so English is needed even for, say, French to Bulgarian.
@@ -104,9 +110,11 @@ out of those apps entirely, there is a switch for it in the translation screen.
 
 ## Known limitations, stated up front
 
-- Translation quality is Google's on-device quality. Fine for ordinary messages, weaker than an online
-  translator. Language pairs that do not include English are routed through English internally, which
-  costs accuracy.
+- ML Kit is fine for ordinary messages but weaker than an online translator. Language pairs that do
+  not include English are routed through English internally, which costs accuracy.
+- Local LLM mode is tuned for short, informal English ↔ French messages. It requires a 64-bit ARM
+  device (x86-64 is supported for emulators), about 398 MB of private storage, and substantially more
+  working memory than ML Kit. The first translation is slower because the model must be loaded.
 - Each language model is roughly 30 MB. The app cannot report exact size on disk, because ML Kit does
   not expose it.
 - There is no download progress bar, because ML Kit reports only success or failure. A fabricated
@@ -120,10 +128,20 @@ out of those apps entirely, there is a switch for it in the translation screen.
 ## Build
 
 macOS or Linux, no Android Studio required. See [docs/toolchain-setup.md](docs/toolchain-setup.md)
-for the exact setup this was built with.
+for the exact setup this was built with. Clone with submodules, or initialise them after cloning:
+
+```bash
+git submodule update --init --recursive
+```
 
 ```bash
 ./gradlew assembleDebug
+```
+
+For a smaller APK targeting modern physical devices only:
+
+```bash
+./gradlew assembleDebug -PtargetAbi=arm64-v8a
 ```
 
 ```bash
@@ -137,4 +155,5 @@ gitignored and no signing key is in this repository.
 
 - [HeliBoard](https://github.com/Helium314/HeliBoard) by Helium314 and contributors, GPL-3.0
 - [OpenBoard](https://github.com/openboard-team/openboard), and AOSP LatinIME before it, Apache-2.0
-- Translation by Google ML Kit, running on device
+- [llama.cpp](https://github.com/ggml-org/llama.cpp), MIT; pinned as a Git submodule
+- Translation by Google ML Kit or llama.cpp, running on device

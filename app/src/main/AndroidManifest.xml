@@ -43,6 +43,14 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
                 android:theme="@style/platformActivityTheme"
                 android:exported="false" />
 
+        <!-- The large GGUF lives outside the latency-sensitive IME process. This service is never
+             exported and LocalLlmModelStore refuses access until the user has unlocked the device. -->
+        <service
+                android:name="helium314.keyboard.bilanguage.llm.LocalLlmService"
+                android:process=":local_llm"
+                android:directBootAware="false"
+                android:exported="false" />
+
         <!-- Services -->
         <service android:name="LatinIME"
                 android:label="@string/english_ime_name"

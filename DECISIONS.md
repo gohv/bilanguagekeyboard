@@ -222,3 +222,21 @@ an incidental detail. Git author identity is inherently public in commit metadat
 
 The preference-key rename is safe specifically because the `applicationId` changed at the same time:
 the new package cannot see the old app's preferences anyway, so there was no migration to preserve.
+
+## 2026-09-05 — Selectable private GGUF engine via llama.cpp
+
+**Decision: retain Google ML Kit and add the fine-tuned Q4_K_M model as an explicitly selectable
+English ↔ French engine.** The app never downloads the private model or embeds a Hugging Face token.
+The user imports the exact GGUF through Android's document picker; the app streams it into
+app-private storage while checking its known size and SHA-256, and refuses access before unlock.
+
+llama.cpp is pinned as a Git submodule and called through a deliberately small JNI surface. Inference
+uses the training prompt verbatim (`FR:\n…` / `EN:\n…`), greedy decoding, and a newline/EOS stop, so
+no chat template can add assistant prose. The model lives in a non-exported `:local_llm` process:
+loading roughly 398 MB cannot permanently inflate or destabilise the latency-sensitive IME process.
+The service and native runtime serialize inference. Provider changes recreate the controller on the
+next input view, and the model remains lazy until the first translation.
+
+Only arm64-v8a phones and x86-64 emulators expose the Local LLM choice. Existing 32-bit installs keep
+ML Kit support. The controller timeout is 30 seconds because first-load latency is device-dependent;
+field contents are still not modified until successful completion, so failure remains atomic.

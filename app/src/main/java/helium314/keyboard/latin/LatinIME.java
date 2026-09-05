@@ -160,6 +160,7 @@ public class LatinIME extends InputMethodService implements
     // BiLanguageKeyboard. The controller is cheap to construct; the engine inside it is created lazily on
     // first translate so keyboard render is never blocked (spec section 8).
     private TranslationController mTranslationController;
+    private String mBiTranslationEngine;
     private LanguagePairStore mLanguagePairStore;
 
     private RichInputMethodManager mRichImm;
@@ -1048,6 +1049,7 @@ public class LatinIME extends InputMethodService implements
      */
     private void initBiLanguage() {
         mLanguagePairStore = new LanguagePairStore(this);
+        mBiTranslationEngine = BiPrefs.INSTANCE.engine(this);
         mTranslationController = new TranslationController(
                 () -> EngineFactory.INSTANCE.engine(this),
                 () -> EngineFactory.INSTANCE.identifier(this),
@@ -1060,6 +1062,12 @@ public class LatinIME extends InputMethodService implements
     /** Applies the 6.1 gate and refreshes the toolbar for a newly opened field. */
     private void onBiStartInputView(final EditorInfo editorInfo) {
         if (mTranslationController == null) return;
+        final String selectedEngine = BiPrefs.INSTANCE.engine(this);
+        if (!selectedEngine.equals(mBiTranslationEngine)) {
+            mTranslationController.close();
+            initBiLanguage();
+            BiLog.i("applying translation engine " + selectedEngine);
+        }
         final FieldGate.Verdict verdict =
                 FieldGate.verdict(editorInfo, BiPrefs.INSTANCE.allowIncognitoApps(this));
         mTranslationController.onFieldChanged(verdict);

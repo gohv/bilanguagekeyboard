@@ -28,6 +28,21 @@
 
     <!-- model management -->
     <string name="blk_models_title" translatable="false">Translation</string>
+    <string name="blk_engine_heading" translatable="false">Translation engine</string>
+    <string name="blk_engine_mlkit" translatable="false">Google ML Kit — smaller, supports many languages</string>
+    <string name="blk_engine_local_llm" translatable="false">Local LLM — better informal English ↔ French</string>
+    <string name="blk_engine_hint" translatable="false">Both engines run entirely on this device. Local LLM supports only English and French and uses substantially more memory.</string>
+    <string name="blk_local_model_heading" translatable="false">Local LLM model</string>
+    <string name="blk_local_model_description" translatable="false">Import keyboard-translator-en-fr-Q4_K_M.gguf (398 MB). The app verifies its exact checksum, copies it to private storage, and never uploads it or your text.</string>
+    <string name="blk_local_model_ready" translatable="false">Q4_K_M model ready on this device</string>
+    <string name="blk_local_model_missing" translatable="false">Model not imported</string>
+    <string name="blk_local_model_import" translatable="false">Import Q4_K_M GGUF</string>
+    <string name="blk_local_model_replace" translatable="false">Verify or replace GGUF</string>
+    <string name="blk_local_model_delete" translatable="false">Delete local LLM model</string>
+    <string name="blk_local_model_deleted" translatable="false">Local LLM model deleted</string>
+    <string name="blk_local_model_importing" translatable="false">Importing and verifying the 398 MB model…</string>
+    <string name="blk_local_model_imported" translatable="false">Local LLM model imported successfully</string>
+    <string name="blk_local_model_import_failed" translatable="false">Model import failed: %1$s</string>
     <string name="blk_models_heading" translatable="false">Languages</string>
     <string name="blk_models_size_note" translatable="false">Each language is roughly %1$d MB. That is the figure Google publishes, not a measurement: ML Kit does not report actual size on disk.</string>
     <string name="blk_model_ready" translatable="false">on device, ~%1$d MB</string>

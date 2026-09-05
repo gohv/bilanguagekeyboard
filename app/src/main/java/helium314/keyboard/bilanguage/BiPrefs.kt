@@ -16,6 +16,7 @@ object BiPrefs {
     /** Which [helium314.keyboard.bilanguage.engine.TranslationEngine] to use. */
     const val PREF_ENGINE = "blk_engine"
     const val ENGINE_MLKIT = "mlkit"
+    const val ENGINE_LOCAL_LLM = "local-llm"
     const val ENGINE_STUB = "stub"
     const val DEFAULT_ENGINE = ENGINE_MLKIT
 

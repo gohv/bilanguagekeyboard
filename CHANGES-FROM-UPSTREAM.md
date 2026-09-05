@@ -28,9 +28,11 @@ rebasing onto upstream is tractable:
 
 - `engine/TranslationEngine`, `LanguageIdentifier` — the interfaces translation is written against.
 - `engine/MlKitEngine`, `MlKitLanguageIdentifier` — on-device translation and language detection.
+- `engine/LocalLlmEngine` and `llm/*` — selectable English ↔ French GGUF inference through llama.cpp,
+  with checksum-verified user import and a separate model process.
 - `engine/StubEngine` — a fake engine used by the tests and available in settings, so the whole UX
   can be exercised with no model present.
-- `TranslationController` — orchestration: lazy engine init, one in-flight job, 3s timeout, one undo
+- `TranslationController` — orchestration: lazy engine init, one in-flight job, 30s timeout, one undo
   step, and the Mode 2 debounce.
 - `FieldGate` — decides which fields may be translated at all.
 - `FieldIo` / `RichInputConnectionFieldIo` — field access behind an interface, so the controller is
@@ -56,9 +58,9 @@ Kept as small as possible:
   window.
 - `SuggestionStripView.kt` — enable/disable the translate key, and set the language chip label.
 - `DebugSettings.java`, `Defaults.kt`, `DebugScreen.kt` — one debug preference.
-- `build.gradle.kts` — ML Kit dependencies, release signing read from a gitignored file, and
+- `build.gradle.kts` — ML Kit and local llama.cpp modules, release signing read from a gitignored file, and
   `isReturnDefaultValues` for unit tests.
-- Manifest — `INTERNET`, `ACCESS_NETWORK_STATE`, and the translation activity.
+- Manifest — `INTERNET`, `ACCESS_NETWORK_STATE`, the translation activity, and a private LLM service.
 
 ## Not changed
 

@@ -16,11 +16,15 @@ android {
         applicationId = "it.hristov.bilanguagekeyboard"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4006
-        versionName = "4.0-dev1"
+        versionCode = 4007
+        versionName = "4.0-dev2"
         ndk {
             abiFilters.clear()
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+            val targetAbi = providers.gradleProperty("targetAbi").orNull
+            abiFilters.addAll(
+                targetAbi?.let(::listOf)
+                    ?: listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            )
         }
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
@@ -98,6 +102,7 @@ android {
     }
 
     buildFeatures {
+        aidl = true
         viewBinding = true
         buildConfig = true
         compose = true
@@ -153,6 +158,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":local-llm"))
+
     // androidx
     implementation("androidx.core:core-ktx:1.17.0") // 1.18.0 requires minSdk 23
     implementation("androidx.recyclerview:recyclerview:1.4.0")

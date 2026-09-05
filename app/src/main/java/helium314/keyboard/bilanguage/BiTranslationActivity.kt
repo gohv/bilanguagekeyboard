@@ -2,6 +2,7 @@
 package helium314.keyboard.bilanguage
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -13,12 +14,16 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import helium314.keyboard.latin.R
 import helium314.keyboard.bilanguage.engine.MlKitEngine
 import helium314.keyboard.bilanguage.engine.PrepareState
+import helium314.keyboard.bilanguage.llm.LocalLlmModelStore
+import helium314.keyboard.bilanguage.llm.LocalLlmService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -91,10 +96,10 @@ class BiTranslationActivity : Activity() {
         )
         heading("Why the keyboard asks for internet access")
         body(
-            "Translation needs a language model, and those models are downloaded from Google once " +
-                "per language, roughly ${MlKitEngine.APPROX_MODEL_MB}MB each. That download is the " +
-                "only reason BiLanguageKeyboard has the INTERNET permission, and it is the only time the " +
-                "keyboard touches the network."
+            "The Google ML Kit option downloads a model from Google once per language, roughly " +
+                "${MlKitEngine.APPROX_MODEL_MB}MB each. Those user-requested downloads are the only reason " +
+                "BiLanguageKeyboard has the INTERNET permission. The Local LLM option never downloads " +
+                "anything: you select its GGUF file from storage and it is copied into private app storage."
         )
         body(
             "Downloads never start on their own. You pick the languages on the next screen. By " +
@@ -107,13 +112,11 @@ class BiTranslationActivity : Activity() {
         )
         heading("What is honestly worse about this")
         body(
-            "Translation quality is Google's on-device quality: good for ordinary messages, weaker " +
-                "than a full online translator. Language pairs that do not involve English are " +
-                "translated via English internally, which costs accuracy."
+            "Google ML Kit is compact and supports many languages, but is weaker than a full online " +
+                "translator. The Local LLM is tuned for informal English and French, but its model takes " +
+                "about 398MB of storage, uses much more memory, and supports only English and French."
         )
         body("Translation is turned off automatically in password, email, URL, phone and number fields.")
-
-        attribution()
 
         val accept = Button(this).apply {
             text = getString(R.string.blk_disclosure_accept)
@@ -131,14 +134,50 @@ class BiTranslationActivity : Activity() {
     private fun renderManagement() {
         title(getString(R.string.blk_models_title))
 
-        val unmetered = CheckBox(this).apply {
-            text = getString(R.string.blk_unmetered_only)
-            isChecked = BiPrefs.unmeteredOnly(this@BiTranslationActivity)
-            setOnCheckedChangeListener { _, checked ->
-                BiPrefs.setUnmeteredOnly(this@BiTranslationActivity, checked)
+        heading(getString(R.string.blk_engine_heading))
+        val engines = RadioGroup(this).apply {
+            orientation = RadioGroup.VERTICAL
+        }
+        val mlKit = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.blk_engine_mlkit)
+        }
+        val localLlm = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.blk_engine_local_llm)
+            isEnabled = LocalLlmModelStore.isSupportedAbi()
+        }
+        engines.addView(mlKit, wide())
+        engines.addView(localLlm, wide())
+        val selected = BiPrefs.engine(this)
+        engines.check(if (selected == BiPrefs.ENGINE_LOCAL_LLM) localLlm.id else mlKit.id)
+        engines.setOnCheckedChangeListener { _, checkedId ->
+            val engine = if (checkedId == localLlm.id) {
+                BiPrefs.ENGINE_LOCAL_LLM
+            } else {
+                BiPrefs.ENGINE_MLKIT
+            }
+            if (engine != BiPrefs.engine(this@BiTranslationActivity)) {
+                BiPrefs.setEngine(this@BiTranslationActivity, engine)
+                BiLog.i("translation engine changed to $engine")
+                render()
             }
         }
-        root.addView(unmetered, wide())
+        root.addView(engines, wide())
+        hint(getString(R.string.blk_engine_hint))
+
+        if (BiPrefs.engine(this) == BiPrefs.ENGINE_LOCAL_LLM) {
+            renderLocalLlmManagement()
+        } else {
+            val unmetered = CheckBox(this).apply {
+                text = getString(R.string.blk_unmetered_only)
+                isChecked = BiPrefs.unmeteredOnly(this@BiTranslationActivity)
+                setOnCheckedChangeListener { _, checked ->
+                    BiPrefs.setUnmeteredOnly(this@BiTranslationActivity, checked)
+                }
+            }
+            root.addView(unmetered, wide())
+        }
 
         val livePreview = CheckBox(this).apply {
             text = getString(R.string.blk_live_preview)
@@ -160,22 +199,7 @@ class BiTranslationActivity : Activity() {
         root.addView(incognito, wide())
         hint(getString(R.string.blk_allow_incognito_hint))
 
-        val useStub = CheckBox(this).apply {
-            text = getString(R.string.blk_use_stub)
-            isChecked = BiPrefs.engine(this@BiTranslationActivity) == BiPrefs.ENGINE_STUB
-            setOnCheckedChangeListener { _, checked ->
-                BiPrefs.setEngine(
-                    this@BiTranslationActivity,
-                    if (checked) BiPrefs.ENGINE_STUB else BiPrefs.ENGINE_MLKIT
-                )
-                render()
-            }
-        }
-        root.addView(useStub, wide())
-
-        if (BiPrefs.engine(this) == BiPrefs.ENGINE_STUB) {
-            hint(getString(R.string.blk_stub_active))
-            attribution()
+        if (BiPrefs.engine(this) == BiPrefs.ENGINE_LOCAL_LLM) {
             return
         }
 
@@ -187,6 +211,81 @@ class BiTranslationActivity : Activity() {
         attribution()
 
         loadModelList(listHolder)
+    }
+
+    private fun renderLocalLlmManagement() {
+        heading(getString(R.string.blk_local_model_heading))
+        hint(getString(R.string.blk_local_model_description))
+        val installed = LocalLlmModelStore.isInstalled(this)
+        body(
+            if (installed) getString(R.string.blk_local_model_ready)
+            else getString(R.string.blk_local_model_missing)
+        )
+        val action = Button(this).apply {
+            text = getString(
+                if (installed) R.string.blk_local_model_replace else R.string.blk_local_model_import
+            )
+            isEnabled = !busy
+            setOnClickListener { openLocalModelPicker() }
+        }
+        root.addView(action, wide())
+        if (installed) {
+            val delete = Button(this).apply {
+                text = getString(R.string.blk_local_model_delete)
+                isEnabled = !busy
+                setOnClickListener {
+                    LocalLlmService.requestUnload(this@BiTranslationActivity)
+                    val deleted = LocalLlmModelStore.delete(this@BiTranslationActivity)
+                    Toast.makeText(
+                        this@BiTranslationActivity,
+                        if (deleted) R.string.blk_local_model_deleted else R.string.blk_delete_failed,
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    render()
+                }
+            }
+            root.addView(delete, wide())
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun openLocalModelPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/octet-stream"
+        }
+        startActivityForResult(intent, REQUEST_LOCAL_MODEL)
+    }
+
+    @Deprecated("Uses the platform document picker for compatibility with plain Activity")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_LOCAL_MODEL || resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        busy = true
+        Toast.makeText(this, R.string.blk_local_model_importing, Toast.LENGTH_LONG).show()
+        render()
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                LocalLlmModelStore.import(this@BiTranslationActivity, uri)
+            }
+            busy = false
+            result.onSuccess {
+                LocalLlmService.requestUnload(this@BiTranslationActivity)
+                Toast.makeText(
+                    this@BiTranslationActivity,
+                    R.string.blk_local_model_imported,
+                    Toast.LENGTH_LONG,
+                ).show()
+            }.onFailure { error ->
+                Toast.makeText(
+                    this@BiTranslationActivity,
+                    getString(R.string.blk_local_model_import_failed, error.message ?: "unknown error"),
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+            render()
+        }
     }
 
     private fun loadModelList(holder: LinearLayout) {
@@ -333,4 +432,8 @@ class BiTranslationActivity : Activity() {
     )
 
     private fun dp(v: Int) = (resources.displayMetrics.density * v).toInt()
+
+    companion object {
+        private const val REQUEST_LOCAL_MODEL = 4107
+    }
 }

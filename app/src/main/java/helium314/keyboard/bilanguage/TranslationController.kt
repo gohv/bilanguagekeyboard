@@ -369,7 +369,9 @@ class TranslationController(
     }
 
     companion object {
-        const val TRANSLATE_TIMEOUT_MS = 3_000L
+        // Includes first-load latency for the optional 398 MB local llama.cpp model. ML Kit usually
+        // returns much sooner; stale results are still prevented by cancellation and snapshot checks.
+        const val TRANSLATE_TIMEOUT_MS = 30_000L
 
         /** Spec section 8: non-negotiable. Mode 2 is ~10x the inference calls of Mode 1. */
         const val DEBOUNCE_MS = 400L
