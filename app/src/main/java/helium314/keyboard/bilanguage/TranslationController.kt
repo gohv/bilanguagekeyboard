@@ -56,6 +56,7 @@ class TranslationController(
     private var identifier: LanguageIdentifier? = null
     private var inFlight: Job? = null
     private var previewJob: Job? = null
+    private var boxJob: Job? = null
 
     /**
      * The pending Mode 2 preview: the field snapshot it was computed from, and the translation.
@@ -197,6 +198,78 @@ class TranslationController(
         preview = null
         BiLog.i("preview committed ${BiLog.redact(pending.translated)}")
         setState(TranslateUiState.Committed(pending.from, pending.to))
+    }
+
+    // ---------------- translate box ----------------
+
+    /**
+     * Translate the text typed into [TranslateBox]. Debounced like Mode 2, but with no language-ID
+     * check (the box is explicitly "type in the source language") and no field read: the box owns
+     * both the text and where the result goes.
+     *
+     * [onResult] gets the translation, or null on failure (the failure itself is shown in the
+     * strip). It is not called for a request superseded by a newer one.
+     */
+    fun translateBoxText(text: String, source: String, target: String, immediate: Boolean,
+                         onResult: (String?) -> Unit) {
+        boxJob?.cancel()
+        boxJob = mainScope.launch {
+            if (!immediate) delay(BOX_DEBOUNCE_MS)
+            val translated = try {
+                boxTranslation(text, source, target)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                BiLog.e("box translation failed", e)
+                setState(TranslateUiState.Failed("Translation failed"))
+                null
+            }
+            onResult(translated)
+        }
+    }
+
+    /** Prepare the engine in the background, e.g. load a local model when the translate box opens. */
+    fun warmUp() {
+        mainScope.launch {
+            runCatching { ensureEngine().warmUp() }
+        }
+    }
+
+    fun cancelBoxTranslation() {
+        boxJob?.cancel()
+        boxJob = null
+    }
+
+    private suspend fun boxTranslation(text: String, source: String, target: String): String? {
+        if (source.equals(target, ignoreCase = true)) return text
+        val eng = ensureEngine()
+        if (!eng.isPairReady(source, target)) {
+            setState(TranslateUiState.ModelMissing(source, target))
+            return null
+        }
+        val started = System.nanoTime()
+        val result = withTimeoutOrNull(timeoutMs) {
+            withContext(ioDispatcher) { eng.translate(text, source, target) }
+        }
+        if (result == null) {
+            setState(TranslateUiState.Failed("Translation timed out"))
+            return null
+        }
+        return result.fold(
+            {
+                BiLog.i("box $source->$target via ${eng.id} in ${(System.nanoTime() - started) / 1_000_000}ms " +
+                    "src=${BiLog.redact(text)} out=${BiLog.redact(it)}")
+                if (_state.value is TranslateUiState.Failed || _state.value is TranslateUiState.ModelMissing) {
+                    setState(TranslateUiState.Idle)
+                }
+                it
+            },
+            {
+                BiLog.e("engine ${eng.id} failed in box", it)
+                setState(TranslateUiState.Failed(it.message?.take(80) ?: "Translation failed"))
+                null
+            },
+        )
     }
 
     /**
@@ -356,6 +429,7 @@ class TranslationController(
     /** Drop native resources. Safe to call repeatedly; the engine is re-created on next use. */
     fun close() {
         cancelInFlight()
+        cancelBoxTranslation()
         previewJob?.cancel()
         previewJob = null
         preview = null
@@ -375,6 +449,9 @@ class TranslationController(
 
         /** Spec section 8: non-negotiable. Mode 2 is ~10x the inference calls of Mode 1. */
         const val DEBOUNCE_MS = 400L
+
+        /** Translate box: a little longer than Mode 2, since a cloud engine pays per request. */
+        const val BOX_DEBOUNCE_MS = 500L
 
         /** Below this, a preview is noise rather than information. */
         const val MIN_PREVIEW_CHARS = 2

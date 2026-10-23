@@ -30,6 +30,7 @@ import android.view.Window;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InlineSuggestion;
+import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InlineSuggestionsRequest;
 import android.view.inputmethod.InlineSuggestionsResponse;
 import android.view.inputmethod.InputMethodSubtype;
@@ -76,6 +77,8 @@ import helium314.keyboard.bilanguage.FieldIo;
 import helium314.keyboard.bilanguage.LanguagePairStore;
 import helium314.keyboard.bilanguage.PairChipDrawable;
 import helium314.keyboard.bilanguage.RichInputConnectionFieldIo;
+import helium314.keyboard.bilanguage.TranslateBox;
+import helium314.keyboard.bilanguage.cloud.Register;
 import helium314.keyboard.bilanguage.TranslateStatusView;
 import helium314.keyboard.bilanguage.TranslateUiState;
 import helium314.keyboard.bilanguage.TranslationController;
@@ -162,6 +165,13 @@ public class LatinIME extends InputMethodService implements
     private TranslationController mTranslationController;
     private String mBiTranslationEngine;
     private LanguagePairStore mLanguagePairStore;
+    private TranslateBox mTranslateBox;
+    /**
+     * The user opened the translate box and has not closed it. It is closed internally whenever the
+     * field restarts (a sent message restarts input in most chat apps) and reopened, empty, for the
+     * next field that allows translation. Only ✕ or the translate key clear this.
+     */
+    private boolean mTranslateBoxSticky;
 
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
@@ -785,6 +795,7 @@ public class LatinIME extends InputMethodService implements
     public void setInputView(final View view) {
         super.setInputView(view);
         mInputView = view;
+        attachTranslateBox(view);
         mInsetsUpdater = ViewOutlineProviderUtilsKt.setInsetsOutlineProvider(view);
         KtxKt.updateSoftInputWindowLayoutParameters(this, mInputView);
         updateSuggestionStripView(view);
@@ -877,6 +888,9 @@ public class LatinIME extends InputMethodService implements
     }
 
     void onStartInputViewInternal(final EditorInfo editorInfo, final boolean restarting) {
+        // A new field means the box's text and anchor refer to something else: close before
+        // InputLogic re-initialises against the app's connection.
+        if (mTranslateBox != null) mTranslateBox.close();
         super.onStartInputView(editorInfo, restarting);
 
         setGestureDataGatheringMode(editorInfo, restarting);
@@ -1080,6 +1094,10 @@ public class LatinIME extends InputMethodService implements
             mSuggestionStripView.setTranslatePairLabel(
                     PairChipDrawable.Companion.label(biSourceLanguage(), biTargetLanguage()));
         }
+        if (mTranslateBoxSticky && allowed && mTranslateBox != null && !mTranslateBox.isOpen()
+                && BiPrefs.INSTANCE.translateBox(this) && BiPrefs.INSTANCE.disclosureAccepted(this)) {
+            openTranslateBox();
+        }
     }
 
     /** Language being typed: the active subtype. See LanguagePairStore for why source is not stored. */
@@ -1126,7 +1144,100 @@ public class LatinIME extends InputMethodService implements
             onBiStateChanged(TranslateUiState.NeedsDisclosure.INSTANCE);
             return;
         }
+        if (BiPrefs.INSTANCE.translateBox(this) && mTranslateBox != null) {
+            if (mTranslateBox.isOpen()) closeTranslateBox();
+            else openTranslateBox();
+            return;
+        }
         mTranslationController.translateNow(biFieldIo(), biSourceLanguage(), biTargetLanguage());
+    }
+
+    // ---------------- BiLanguageKeyboard translate box ----------------
+
+    /**
+     * While the translate box is open, everything upstream types goes into the box. RichInputConnection
+     * fetches the connection through this method on every operation, so this one override is the
+     * whole redirect.
+     */
+    @Override
+    public InputConnection getCurrentInputConnection() {
+        if (mTranslateBox != null && mTranslateBox.isOpen()) {
+            final InputConnection box = mTranslateBox.boxInputConnection();
+            if (box != null) return box;
+        }
+        return super.getCurrentInputConnection();
+    }
+
+    private void attachTranslateBox(final View inputView) {
+        if (mTranslateBox == null) mTranslateBox = new TranslateBox(this, new TranslateBox.Host() {
+            @Override public InputConnection appInputConnection() { return LatinIME.super.getCurrentInputConnection(); }
+            @Override public EditorInfo appEditorInfo() { return getCurrentInputEditorInfo(); }
+            @Override public void onBoxSelectionChanged(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd,
+                                                        int composingStart, int composingEnd) {
+                handleSelectionUpdate(oldSelStart, oldSelEnd, newSelStart, newSelEnd, composingStart, composingEnd);
+            }
+            @Override public void requestTranslation(String text, boolean immediate, kotlin.jvm.functions.Function1<? super String, Unit> onResult) {
+                if (mTranslationController == null) return;
+                mTranslationController.translateBoxText(text, biSourceLanguage(), biTargetLanguage(), immediate, onResult);
+            }
+            @Override public void cancelTranslation() {
+                if (mTranslationController != null) mTranslationController.cancelBoxTranslation();
+            }
+            @Override public String pairLabel() {
+                return biSourceLanguage().toUpperCase(Locale.ROOT) + " → " + biTargetLanguage().toUpperCase(Locale.ROOT);
+            }
+            @Override public String registerLabel() {
+                final String engine = BiPrefs.INSTANCE.engine(LatinIME.this);
+                final boolean instructable = BiPrefs.ENGINE_CLOUD_LLM.equals(engine)
+                        || (BiPrefs.ENGINE_LOCAL_LLM.equals(engine)
+                            && helium314.keyboard.bilanguage.llm.LocalLlmModelStore.INSTANCE.isActiveChat(LatinIME.this));
+                if (!instructable) return null;
+                if (!Register.Companion.appliesTo(biTargetLanguage())) return null;
+                return BiPrefs.INSTANCE.register(LatinIME.this).getLabel();
+            }
+            @Override public void toggleRegister() {
+                final Register next = BiPrefs.INSTANCE.register(LatinIME.this).toggled();
+                BiPrefs.INSTANCE.setRegister(LatinIME.this, next);
+                BiLog.i("register set to " + next.getId());
+            }
+            @Override public void onCloseRequested() { closeTranslateBox(); }
+        });
+        final boolean wasOpen = mTranslateBox.isOpen();
+        final View boxView = mTranslateBox.createView();
+        final View frame = inputView.findViewById(R.id.main_keyboard_frame);
+        if (frame instanceof android.view.ViewGroup) {
+            ((android.view.ViewGroup) frame).addView(boxView, 0, new android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        } else if (wasOpen) {
+            closeTranslateBox();
+        }
+    }
+
+    private void openTranslateBox() {
+        // Settle the word being composed in the app before InputLogic is pointed elsewhere.
+        mInputLogic.finishInput();
+        if (!mTranslateBox.open()) return;
+        mTranslateBoxSticky = true;
+        if (mTranslationController != null) mTranslationController.warmUp();
+        restartInputLogicOnCurrentTarget(0, 0);
+    }
+
+    private void closeTranslateBox() {
+        mTranslateBoxSticky = false;
+        if (mTranslateBox == null || !mTranslateBox.isOpen()) return;
+        mInputLogic.finishInput();
+        mTranslateBox.close();
+        final int[] sel = mTranslateBox.appSelection();
+        restartInputLogicOnCurrentTarget(sel == null ? 0 : sel[0], sel == null ? 0 : sel[1]);
+    }
+
+    /** The same re-initialisation onStartInputView does, against whichever connection is now current. */
+    private void restartInputLogicOnCurrentTarget(final int selStart, final int selEnd) {
+        mInputLogic.startInput(mRichImm.getCombiningRulesExtraValueOfCurrentSubtype(), mSettings.getCurrent());
+        mInputLogic.mConnection.resetCachesUponCursorMoveAndReturnSuccess(selStart, selEnd, false);
+        mInputLogic.mConnection.tryFixIncorrectCursorPosition();
+        setNeutralSuggestionStrip();
+        mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
     }
 
     /** Long-press on the translate key or the pair chip: the picker / model management screen. */
@@ -1143,7 +1254,7 @@ public class LatinIME extends InputMethodService implements
      */
     private void onBiTextChanged(final Event event) {
         if (mTranslationController == null) return;
-        if (!BiPrefs.INSTANCE.livePreview(this)) return;
+        if (!BiPrefs.INSTANCE.livePreviewActive(this)) return;
         if (!BiPrefs.INSTANCE.disclosureAccepted(this)) return;
         final int code = event.getKeyCode();
         // Our own keys must not drive the preview loop.
@@ -1193,6 +1304,7 @@ public class LatinIME extends InputMethodService implements
             mSuggestionStripView.setTranslatePairLabel(
                     PairChipDrawable.Companion.label(biSourceLanguage(), biTargetLanguage()));
         }
+        if (mTranslateBox != null) mTranslateBox.refreshLabel();
     }
 
     /** Reflects controller state in the candidates strip. */
@@ -1245,6 +1357,7 @@ public class LatinIME extends InputMethodService implements
     }
 
     void onFinishInputViewInternal(final boolean finishingInput) {
+        if (mTranslateBox != null) mTranslateBox.close();
         super.onFinishInputView(finishingInput);
         Log.i(TAG, "onFinishInputView");
         cleanupInternalStateForFinishInput();
@@ -1268,6 +1381,18 @@ public class LatinIME extends InputMethodService implements
                                   final int composingSpanStart, final int composingSpanEnd) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
                 composingSpanStart, composingSpanEnd);
+        if (mTranslateBox != null && mTranslateBox.isOpen()) {
+            // While the box is open InputLogic tracks the box, not the app: app updates go to the box
+            // (to notice a sent message), the box reports its own moves via onBoxSelectionChanged.
+            mTranslateBox.onAppSelectionChanged(newSelStart, newSelEnd);
+            return;
+        }
+        handleSelectionUpdate(oldSelStart, oldSelEnd, newSelStart, newSelEnd, composingSpanStart, composingSpanEnd);
+    }
+
+    private void handleSelectionUpdate(final int oldSelStart, final int oldSelEnd,
+                                       final int newSelStart, final int newSelEnd,
+                                       final int composingSpanStart, final int composingSpanEnd) {
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1410,7 +1535,8 @@ public class LatinIME extends InputMethodService implements
             return;
         }
         final int stripHeight = mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0;
-        int visibleTopY = inputHeight - visibleKeyboardView.getHeight() - stripHeight;
+        final int boxHeight = mTranslateBox == null ? 0 : mTranslateBox.getVisibleHeight();
+        int visibleTopY = inputHeight - visibleKeyboardView.getHeight() - stripHeight - boxHeight;
         if (Settings.getValues().mIsFloatingKeyboard)
             visibleTopY = getResources().getDisplayMetrics().heightPixels;
 

@@ -2,6 +2,7 @@
 package helium314.keyboard.bilanguage
 
 import android.content.Context
+import helium314.keyboard.bilanguage.engine.CloudLlmEngine
 import helium314.keyboard.bilanguage.engine.LanguageIdentifier
 import helium314.keyboard.bilanguage.engine.MlKitEngine
 import helium314.keyboard.bilanguage.engine.MlKitLanguageIdentifier
@@ -20,6 +21,7 @@ object EngineFactory {
     fun engine(context: Context): TranslationEngine = when (BiPrefs.engine(context)) {
         BiPrefs.ENGINE_STUB -> StubEngine()
         BiPrefs.ENGINE_LOCAL_LLM -> LocalLlmEngine(context)
+        BiPrefs.ENGINE_CLOUD_LLM -> CloudLlmEngine(context)
         else -> MlKitEngine(requireWifi = BiPrefs.unmeteredOnly(context))
     }
 
@@ -37,7 +39,8 @@ object EngineFactory {
      */
     fun supportedLanguages(context: Context): List<String> = when (BiPrefs.engine(context)) {
         BiPrefs.ENGINE_STUB -> StubEngine.STUB_LANGUAGES
-        BiPrefs.ENGINE_LOCAL_LLM -> LocalLlmEngine.SUPPORTED_LANGUAGES
+        BiPrefs.ENGINE_LOCAL_LLM -> LocalLlmEngine.supportedLanguages(context)
+        BiPrefs.ENGINE_CLOUD_LLM -> CloudLlmEngine.SUPPORTED_LANGUAGES
         else -> TranslateLanguage.getAllLanguages()
     }
 }

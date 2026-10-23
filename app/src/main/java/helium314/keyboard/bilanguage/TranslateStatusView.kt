@@ -43,7 +43,9 @@ object TranslateStatusView {
         is TranslateUiState.ModelMissing ->
             row(
                 context,
-                context.getString(
+                if (BiPrefs.engine(context) == BiPrefs.ENGINE_CLOUD_LLM) {
+                    context.getString(R.string.blk_cloud_not_configured)
+                } else context.getString(
                     R.string.blk_model_missing,
                     state.from.uppercase(),
                     state.to.uppercase()

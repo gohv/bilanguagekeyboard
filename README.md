@@ -26,9 +26,16 @@ mentioned in the docs.
 
 A keyboard sees everything you type, so vague claims are worthless. Specifically:
 
-- **Translation runs on this device.** Your text is not sent anywhere to be translated.
+- **Translation runs on this device by default.** With ML Kit or Local LLM, your text is not sent
+  anywhere to be translated.
+- **Except with Cloud LLM, which you have to opt into.** If you choose it and save your own API key,
+  the text of each translate tap is sent to the provider you configured (Mistral, Anthropic, OpenAI,
+  OpenRouter, Gemini, or any OpenAI-compatible endpoint), under that provider's terms. Live preview
+  is disabled for this engine, so unfinished drafts are never sent. Each request is logged as
+  `CLOUD REQUEST to <host>` with a length and hash, never the text or the key.
 - **The app declares `INTERNET`.** It is used by the Google ML Kit option to download a translation
-  model when you tap Download. Local LLM mode does not use the network: its GGUF is user-imported.
+  model when you tap Download, and by Cloud LLM if you enable it. Local LLM mode does not use the
+  network: its GGUF is user-imported.
 - **That download is logged**, so the claim above is checkable rather than trusted:
 
   ```
@@ -63,14 +70,22 @@ apksigner verify --print-certs BiLanguageKeyboard-*.apk
 ## Using it
 
 **First run.** Long-press the translate key (the toolbar key that looks like 文A) to open the
-translation screen. Choose either Google ML Kit or Local LLM. Nothing downloads until you ask, and
+translation screen. Choose Google ML Kit, Local LLM, or Cloud LLM. Nothing downloads until you ask, and
 ML Kit downloads use Wi-Fi by default.
 
-**Local LLM.** Download `keyboard-translator-en-fr-Q4_K_M.gguf` from the private model repository,
-copy it to the phone, choose **Local LLM** in the translation screen, and tap **Import Q4_K_M GGUF**.
-The picker copies it into app-private storage after verifying its exact 398 MB size and
-SHA-256 (`74adde7ba961f85b0bbc31a7061bf2375f87015207fe7cf82273a54c13f148e9`). It supports only
-English ↔ French. The model is loaded by llama.cpp in a separate app process on first translation.
+**Cloud LLM.** Choose **Cloud LLM** in the translation screen, pick a provider, check the model
+id, paste your API key, and tap **Save**. **Test** sends the fixed phrase "Good morning", nothing you
+typed. The key is encrypted with an Android Keystore key and only its last four characters are ever
+shown again. The URL must be `https://`.
+
+**Local LLM.** Put any GGUF on the phone (Downloads is fine), choose **Local LLM**, and tap **Add
+GGUF model…**. Nothing is copied: the app keeps read access to the file where it is. Add as many as
+you like and tap one to make it active. **Remove** forgets a model without deleting the file. The
+app reads the GGUF header: models with a chat template (Gemma, Qwen, Llama instruct builds) are
+prompted with a translation instruction in their own turn format and can translate every language,
+including Casual / Polite French. Models without one get the raw `FR:` / `EN:` prompt of the
+fine-tuned English ↔ French model. llama.cpp loads the active model in a separate app process on
+first translation.
 
 Download the languages you type in **and English** — every model translates between its language and
 English, so English is needed even for, say, French to Bulgarian.
@@ -112,9 +127,9 @@ out of those apps entirely, there is a switch for it in the translation screen.
 
 - ML Kit is fine for ordinary messages but weaker than an online translator. Language pairs that do
   not include English are routed through English internally, which costs accuracy.
-- Local LLM mode is tuned for short, informal English ↔ French messages. It requires a 64-bit ARM
-  device (x86-64 is supported for emulators), about 398 MB of private storage, and substantially more
-  working memory than ML Kit. The first translation is slower because the model must be loaded.
+- Local LLM quality and speed depend entirely on the GGUF. It requires a 64-bit ARM device (x86-64
+  for emulators) and much more working memory than ML Kit; the first translation is slower because
+  the model must be loaded.
 - Each language model is roughly 30 MB. The app cannot report exact size on disk, because ML Kit does
   not expose it.
 - There is no download progress bar, because ML Kit reports only success or failure. A fabricated
