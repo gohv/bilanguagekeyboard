@@ -4,7 +4,8 @@ package helium314.keyboard.bilanguage.engine
 import kotlinx.coroutines.flow.Flow
 
 /**
- * On-device translation. No implementation of this may send typed text off the device.
+ * Translation. No implementation may send typed text off the device, with exactly one documented
+ * exception: [CloudLlmEngine], which the user opts into by choosing it and saving their own API key.
  *
  * Every method is suspending or callback-based on purpose. A future large local model must not live
  * in the IME process — Android kills IME processes aggressively and they cannot afford multi-second
@@ -29,6 +30,9 @@ interface TranslationEngine {
 
     /** Translate. Must be cancellable. Must not throw on cancellation. */
     suspend fun translate(text: String, source: String, target: String): Result<String>
+
+    /** Optional: get ready for an imminent translation (load a model). Must not throw. */
+    suspend fun warmUp() {}
 
     /** Release native resources. Called from onDestroy and onTrimMemory. */
     fun close()

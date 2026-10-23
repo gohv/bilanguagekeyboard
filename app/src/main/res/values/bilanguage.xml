@@ -19,6 +19,7 @@
 
     <!-- translate key states / strip rows -->
     <string name="blk_model_missing" translatable="false">No model for %1$s → %2$s. Tap to set up</string>
+    <string name="blk_cloud_not_configured" translatable="false">Cloud LLM is not set up. Tap to add an API key</string>
     <string name="blk_needs_disclosure" translatable="false">Tap to set up translation</string>
     <string name="blk_tap_to_use" translatable="false">tap to use</string>
 
@@ -30,19 +31,41 @@
     <string name="blk_models_title" translatable="false">Translation</string>
     <string name="blk_engine_heading" translatable="false">Translation engine</string>
     <string name="blk_engine_mlkit" translatable="false">Google ML Kit — smaller, supports many languages</string>
-    <string name="blk_engine_local_llm" translatable="false">Local LLM — better informal English ↔ French</string>
-    <string name="blk_engine_hint" translatable="false">Both engines run entirely on this device. Local LLM supports only English and French and uses substantially more memory.</string>
+    <string name="blk_engine_local_llm" translatable="false">Local LLM — a GGUF model running on this phone</string>
+    <string name="blk_engine_cloud_llm" translatable="false">Cloud LLM — your own API key, sends text to the provider</string>
+    <string name="blk_engine_hint" translatable="false">ML Kit and Local LLM run entirely on this device. Local LLM supports only English and French and uses substantially more memory. Cloud LLM sends the text you translate to the provider you choose.</string>
+    <string name="blk_cloud_heading" translatable="false">Cloud LLM provider</string>
+    <string name="blk_cloud_warning" translatable="false">With this engine, the text you translate leaves this phone. Each time you tap the translate key, that text is sent to the provider below with your API key, and the provider\'s own privacy terms apply. Nothing is sent while you type: live preview is off for this engine. Translation stays blocked in password, email, URL, phone and number fields.</string>
+    <string name="blk_cloud_provider" translatable="false">Provider</string>
+    <string name="blk_cloud_base_url" translatable="false">API base URL (https only)</string>
+    <string name="blk_cloud_model" translatable="false">Model</string>
+    <string name="blk_cloud_model_hint" translatable="false">Model id, e.g. gpt-4.1-mini</string>
+    <string name="blk_cloud_api_key" translatable="false">API key</string>
+    <string name="blk_cloud_api_key_hint_empty" translatable="false">Paste your API key</string>
+    <string name="blk_cloud_api_key_hint_saved" translatable="false">Saved key ending in %1$s. Leave empty to keep it</string>
+    <string name="blk_cloud_key_note" translatable="false">The key is encrypted with a key held in the Android Keystore and is never logged, shown or backed up in usable form.</string>
+    <string name="blk_cloud_save" translatable="false">Save</string>
+    <string name="blk_cloud_saved" translatable="false">Cloud LLM settings saved</string>
+    <string name="blk_cloud_test" translatable="false">Test: translate \"Good morning\" to French</string>
+    <string name="blk_cloud_test_ok" translatable="false">Provider replied: %1$s</string>
+    <string name="blk_cloud_test_failed" translatable="false">Test failed: %1$s</string>
+    <string name="blk_cloud_remove_key" translatable="false">Remove API key</string>
+    <string name="blk_cloud_key_removed" translatable="false">API key removed</string>
+    <string name="blk_translate_box" translatable="false">Translate key opens a translation box</string>
+    <string name="blk_translate_box_hint" translatable="false">Type in a box above the keyboard and the translation appears in the app as you type; tap ✕ or the translate key to close it. Off: the translate key translates the whole field once. With Cloud LLM, the box text is sent each time you pause typing.</string>
+    <string name="blk_box_hint" translatable="false">Type here to translate</string>
+    <string name="blk_box_close" translatable="false">Close translation box</string>
+    <string name="blk_live_preview_cloud_off" translatable="false">Not available with Cloud LLM: it would send unfinished drafts to the provider.</string>
     <string name="blk_local_model_heading" translatable="false">Local LLM model</string>
-    <string name="blk_local_model_description" translatable="false">Import keyboard-translator-en-fr-Q4_K_M.gguf (398 MB). The app verifies its exact checksum, copies it to private storage, and never uploads it or your text.</string>
-    <string name="blk_local_model_ready" translatable="false">Q4_K_M model ready on this device</string>
-    <string name="blk_local_model_missing" translatable="false">Model not imported</string>
-    <string name="blk_local_model_import" translatable="false">Import Q4_K_M GGUF</string>
-    <string name="blk_local_model_replace" translatable="false">Verify or replace GGUF</string>
-    <string name="blk_local_model_delete" translatable="false">Delete local LLM model</string>
-    <string name="blk_local_model_deleted" translatable="false">Local LLM model deleted</string>
-    <string name="blk_local_model_importing" translatable="false">Importing and verifying the 398 MB model…</string>
-    <string name="blk_local_model_imported" translatable="false">Local LLM model imported successfully</string>
-    <string name="blk_local_model_import_failed" translatable="false">Model import failed: %1$s</string>
+    <string name="blk_local_model_description" translatable="false">Point the keyboard at any GGUF on this phone, e.g. in Downloads. Nothing is copied: the file is read where it is, and you can add several and switch between them. Models with a chat template (Gemma, Qwen, Llama \"-it\" / instruct builds) translate every language and follow Casual / Polite. Models without one get the raw EN:/FR: prompt of the fine-tuned English ↔ French model. Nothing is ever uploaded.</string>
+    <string name="blk_local_model_missing" translatable="false">No model added yet</string>
+    <string name="blk_local_kind_chat" translatable="false">chat model, all languages</string>
+    <string name="blk_local_kind_raw" translatable="false">no chat template, English ↔ French prompt</string>
+    <string name="blk_local_model_add" translatable="false">Add GGUF model…</string>
+    <string name="blk_local_model_remove" translatable="false">Remove</string>
+    <string name="blk_local_model_removed" translatable="false">Removed from the list. The file itself was not deleted.</string>
+    <string name="blk_local_model_added" translatable="false">Added and selected: %1$s</string>
+    <string name="blk_local_model_import_failed" translatable="false">Could not add the model: %1$s</string>
     <string name="blk_models_heading" translatable="false">Languages</string>
     <string name="blk_models_size_note" translatable="false">Each language is roughly %1$d MB. That is the figure Google publishes, not a measurement: ML Kit does not report actual size on disk.</string>
     <string name="blk_model_ready" translatable="false">on device, ~%1$d MB</string>

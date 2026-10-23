@@ -11,7 +11,7 @@ in the git history of this repository.
 | `applicationId` | `helium314.keyboard` | `it.hristov.bilanguagekeyboard` |
 | `minSdk` | 21 | 26 |
 | Display name | HeliBoard | BiLanguage Keyboard |
-| `INTERNET` permission | not declared | declared, for model download only |
+| `INTERNET` permission | not declared | declared, for model download and the opt-in Cloud LLM engine |
 
 The Java/Kotlin namespace is deliberately left as `helium314.keyboard.*`. Renaming it would touch
 thousands of files, make every future rebase onto upstream painful, and gain nothing:
@@ -30,6 +30,9 @@ rebasing onto upstream is tractable:
 - `engine/MlKitEngine`, `MlKitLanguageIdentifier` — on-device translation and language detection.
 - `engine/LocalLlmEngine` and `llm/*` — selectable English ↔ French GGUF inference through llama.cpp,
   with checksum-verified user import and a separate model process.
+- `engine/CloudLlmEngine` and `cloud/*` — opt-in translation through a hosted LLM with the user's own
+  API key (Anthropic Messages or any OpenAI-compatible chat endpoint), key encrypted with the Android
+  Keystore. The only code that sends typed text off the device.
 - `engine/StubEngine` — a fake engine used by the tests and available in settings, so the whole UX
   can be exercised with no model present.
 - `TranslationController` — orchestration: lazy engine init, one in-flight job, 30s timeout, one undo
@@ -39,6 +42,7 @@ rebasing onto upstream is tractable:
   unit-testable.
 - `LanguagePairStore` — the translation target, remembered per app.
 - `BiTranslationActivity` — first-run disclosure and model management.
+- `TranslateBox` — the translate-as-you-type box above the strip.
 - `TranslateStatusView`, `PairChipDrawable`, `FieldDebugView` — the strip UI, the language chip, and a
   debug overlay.
 
@@ -51,8 +55,10 @@ Kept as small as possible:
 - `ToolbarUtils.kt` — two new `ToolbarKey` entries, their code mappings, and the default toolbar.
 - `KeyboardIconsSet.kt` — icons for those keys in all three icon styles.
 - `InputLogic.java` — dispatch for the new key codes.
-- `LatinIME.java` — controller lifecycle, the field gate on input start, the live-preview hook, and
-  engine release in the existing `onTrimMemory` arm and in `onDestroy`.
+- `LatinIME.java` — controller lifecycle, the field gate on input start, the live-preview hook,
+  engine release in the existing `onTrimMemory` arm and in `onDestroy`, and the translate box: a
+  `getCurrentInputConnection()` override, selection routing in `onUpdateSelection`, and its height
+  in `onComputeInsets`.
 - `RichInputConnection.java` — two additions: `deleteSurroundingText(before, after)`, which upstream
   lacks, and `getFullFieldText()`, which reads the whole field instead of the 1024-character cached
   window.

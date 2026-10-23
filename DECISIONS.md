@@ -240,3 +240,116 @@ next input view, and the model remains lazy until the first translation.
 Only arm64-v8a phones and x86-64 emulators expose the Local LLM choice. Existing 32-bit installs keep
 ML Kit support. The controller timeout is 30 seconds because first-load latency is device-dependent;
 field contents are still not modified until successful completion, so failure remains atomic.
+
+## 2026-10-23 — Opt-in cloud LLM engine with a user-supplied API key
+
+**Decision: add `CloudLlmEngine` as a third, explicitly selected engine.** It speaks the Anthropic
+Messages API and the OpenAI chat-completions shape, which together cover nearly every hosted
+provider. Presets (Mistral, the default, then Anthropic, OpenAI, OpenRouter, Gemini, custom) only fill in the base URL and a
+default model; both stay editable.
+
+**This ends "no typed text leaves the device" as an unconditional property.** It remains true for
+the default ML Kit engine and for Local LLM, and the disclosure, README, manifest comment and
+`TranslationEngine` contract now say so with this one exception named. What keeps the exception
+narrow:
+
+- Never the default, and does nothing until the user saves a key (`isPairReady` is false without one,
+  so the strip says "not set up" instead of sending anything).
+- **Live preview is refused for this engine** (`BiPrefs.livePreviewActive`) regardless of the
+  checkbox: preview translates partial drafts on every pause, and sending text the user never asked to
+  translate is a different thing from sending what they tapped translate on.
+- `FieldGate` is unchanged, so password, email, URL, phone and number fields are still never sent.
+- The request contains the text, the two language names and a fixed instruction, nothing else.
+- Logs record host, model, HTTP status, latency and redacted length/hash, never text, response or key.
+- HTTPS only. Plain-HTTP LAN servers (LM Studio, Ollama) are refused by design rather than by
+  adding a cleartext network-security exception for the whole keyboard process.
+
+**The key is encrypted with an AES-GCM key in the Android Keystore** and only the ciphertext goes to
+SharedPreferences. `EncryptedSharedPreferences` was not used because it is deprecated. A restored
+backup carries undecryptable ciphertext and the user re-enters the key.
+
+Language identification for the 6.2 idempotence check still uses on-device ML Kit, so it adds no
+network use. No temperature is sent and OpenAI-compatible requests carry no token limit, because
+several current models reject non-default values or `max_tokens`; the controller timeout bounds them.
+
+## 2026-10-23 — Translate box (type in the keyboard, translation appears in the app)
+
+Requested after using the cloud engine: tapping translate per message is too slow. Modelled on
+Samsung Keyboard's translation bar. With "Translate key opens a translation box" on (the default),
+the translate key opens a box above the strip; what is typed there is translated after a 500 ms pause
+(immediately on `.`, `!`, `?`) and the translation replaces whatever the box last wrote into the app.
+When the app empties its field (a sent message), the box clears for the next one.
+
+**Redirect by overriding `LatinIME.getCurrentInputConnection()`.** `RichInputConnection` fetches the
+connection from it before every operation, so pointing it at the box's own `EditText` connection
+gives the box all of upstream's typing behaviour (composing, autocorrect, suggestions, gestures) with
+no changes to `InputLogic`. The box reports its own selection changes in place of the system's
+`onUpdateSelection`, posted and coalesced so they are never re-entrant, and the system's reports for
+the app's field are diverted while the box is open. Opening and closing re-run the same
+`startInput` / cache reset that `onStartInputView` does.
+
+**Privacy, with Cloud LLM: the box sends drafts on each pause.** That is the thing live preview is
+refused for. The difference is intent: the box is opened explicitly for live translation and only its
+contents are sent, never the app's field. The settings hint says so plainly.
+
+## 2026-10-23 — Casual / Polite switch for French
+
+A chip in the translate box switches between casual (tu) and polite (vous) French. It is shown only
+with Cloud LLM and a French target, because only an instruction-following engine can honour it; ML
+Kit and the fine-tuned local model have no such control. The choice is stored (`blk_register`,
+default casual) and read by `CloudLlmEngine` on every request, so it applies to one-tap translation
+too. It replaces the prompt's "keep the register" line with an explicit tu/vous instruction.
+Switching re-translates the box immediately.
+
+## 2026-10-23 — Local LLM: point at any GGUF, no hardcoded model
+
+Supersedes the import half of the 2026-09-05 entry. The importer used to accept exactly one file
+(size + SHA-256) and copy it into private storage. Now the document picker grants persistent read
+access to a GGUF where it already is, nothing is copied, any number can be listed, and one is active.
+The `:local_llm` process opens the content URI itself and hands llama.cpp `/proc/self/fd/N`; if
+mapping that fails it retries with plain reads.
+
+No model is special-cased. At add time a minimal GGUF metadata reader records `general.name`,
+`general.architecture` and whether `tokenizer.chat_template` exists. With a template, the model gets
+the cloud engine's instruction (including Casual / Polite) wrapped in its own turn format — Gemma 4
+`<|turn>`, Gemma 2/3, Llama 3, otherwise ChatML — with thinking off, a 1536-token context and
+decoding to end-of-turn. Without one, it gets the fine-tuned model's raw `FR:`/`EN:` prompt, greedy,
+one line. llama.cpp's own `llama_chat_apply_template` was not used because its built-in list
+recognises Gemma by `<start_of_turn>` and would mis-format Gemma 4.
+
+Trade-off: if the user moves or deletes the file, the model stops loading and the error says to add
+it again. That is preferred over duplicating multi-gigabyte files per model.
+
+## 2026-10-23 — Local LLM speed: CPU features, thread split, prefix snapshot, real cancel
+
+None of these change the model or the maths; output is identical.
+
+**Built for the phone's CPU.** The native library was compiled for baseline armv8-a, so llama.cpp
+could not use `sdot` / `smmla`. It is now built with
+`GGML_CPU_ARM_ARCH=armv8.2-a+dotprod+i8mm+fp16`, which also lets the runtime Q4_K repack use i8mm.
+`LocalLlmModelStore.isSupportedAbi` reads `/proc/cpuinfo` and refuses ARM CPUs without
+`asimddp`/`i8mm`/`asimdhp` rather than letting the model process die with SIGILL.
+
+Measured with llama-bench on a Snapdragon 8 Elite (Galaxy Z Fold7), Index-Translate-2B Q4_K_M,
+160-token prompt, 32 generated tokens:
+
+| build | threads | prompt t/s | generation t/s |
+|---|---|---|---|
+| baseline armv8-a | 6 (old setting) | 37 | 24 |
+| dotprod+i8mm+fp16 | 6 | 106 | 39 |
+| dotprod+i8mm+fp16 | 8 | 191 | 17 |
+
+Hence **8 threads for prompt processing, 6 for generation** (`n_threads_batch` / `n_threads`).
+
+**One context per loaded model, plus a snapshot of the instruction prefix.** The prompt is sent as
+(prefix, rest), split where the user's text begins. After the prefix is processed once, sequence
+0's state is saved with `llama_state_seq_get_data` and restored on later calls. A snapshot rather
+than trimming the KV cache, because hybrid/recurrent models (Qwen3.5, the Index-Translate base)
+cannot remove part of a sequence.
+
+**Cancellation reaches the model.** A newer keystroke used to cancel only the Kotlin coroutine while
+generation ran to completion and the next request queued behind it. The engine now sends a
+`oneway cancel(requestId)`, checked by an atomic flag in the decode loop and llama.cpp's abort
+callback; the id ensures a late cancel can never abort a newer request.
+
+**Warm-up.** Opening the translate box loads the active model in the background.

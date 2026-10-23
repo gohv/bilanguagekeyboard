@@ -9,9 +9,10 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-        BiLanguageKeyboard: the only network permission, and it exists for exactly one purpose: downloading
-        translation models once per language, on explicit request. No typed text is ever sent
-        anywhere; translation inference runs on this device. The download is logged under the
+        BiLanguageKeyboard: the only network permission. It is used to download translation models once
+        per language, on explicit request, and by the opt-in Cloud LLM engine, which sends the text of
+        each translate tap to the provider the user configured with their own API key. With the default
+        on-device engines no typed text is ever sent anywhere. The download is logged under the
         BiLanguageKeyboard tag so the claim is auditable, and the first-run disclosure states it plainly.
         Spec section 3 Option A; removing this again is the goal of the optional phase 7.
     -->

@@ -6,20 +6,29 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.text.InputType
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import helium314.keyboard.latin.R
+import helium314.keyboard.bilanguage.cloud.ApiKeyStore
+import helium314.keyboard.bilanguage.cloud.CloudConfig
+import helium314.keyboard.bilanguage.cloud.CloudProvider
+import helium314.keyboard.bilanguage.engine.CloudLlmEngine
 import helium314.keyboard.bilanguage.engine.MlKitEngine
 import helium314.keyboard.bilanguage.engine.PrepareState
 import helium314.keyboard.bilanguage.llm.LocalLlmModelStore
@@ -94,12 +103,18 @@ class BiTranslationActivity : Activity() {
                 "account, and no analytics. Nothing you write is uploaded, and nothing you write is " +
                 "saved to disk by BiLanguageKeyboard."
         )
+        body(
+            "The one exception is opt-in: if you choose the Cloud LLM engine and add your own API key, " +
+                "the text you translate is sent to the provider you picked. The two on-device engines " +
+                "never do that, and Cloud LLM is never selected for you."
+        )
         heading("Why the keyboard asks for internet access")
         body(
             "The Google ML Kit option downloads a model from Google once per language, roughly " +
                 "${MlKitEngine.APPROX_MODEL_MB}MB each. Those user-requested downloads are the only reason " +
-                "BiLanguageKeyboard has the INTERNET permission. The Local LLM option never downloads " +
-                "anything: you select its GGUF file from storage and it is copied into private app storage."
+                "BiLanguageKeyboard has the INTERNET permission, apart from the opt-in Cloud LLM engine. The " +
+                "Local LLM option never downloads anything: you point it at a GGUF file already on the " +
+                "phone, and it is read where it is."
         )
         body(
             "Downloads never start on their own. You pick the languages on the next screen. By " +
@@ -113,8 +128,8 @@ class BiTranslationActivity : Activity() {
         heading("What is honestly worse about this")
         body(
             "Google ML Kit is compact and supports many languages, but is weaker than a full online " +
-                "translator. The Local LLM is tuned for informal English and French, but its model takes " +
-                "about 398MB of storage, uses much more memory, and supports only English and French."
+                "translator. A Local LLM can be much better, but it is only as good as the GGUF you choose, " +
+                "uses far more memory, and the first translation waits for the model to load."
         )
         body("Translation is turned off automatically in password, email, URL, phone and number fields.")
 
@@ -147,15 +162,26 @@ class BiTranslationActivity : Activity() {
             text = getString(R.string.blk_engine_local_llm)
             isEnabled = LocalLlmModelStore.isSupportedAbi()
         }
+        val cloudLlm = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.blk_engine_cloud_llm)
+        }
         engines.addView(mlKit, wide())
         engines.addView(localLlm, wide())
+        engines.addView(cloudLlm, wide())
         val selected = BiPrefs.engine(this)
-        engines.check(if (selected == BiPrefs.ENGINE_LOCAL_LLM) localLlm.id else mlKit.id)
+        engines.check(
+            when (selected) {
+                BiPrefs.ENGINE_LOCAL_LLM -> localLlm.id
+                BiPrefs.ENGINE_CLOUD_LLM -> cloudLlm.id
+                else -> mlKit.id
+            }
+        )
         engines.setOnCheckedChangeListener { _, checkedId ->
-            val engine = if (checkedId == localLlm.id) {
-                BiPrefs.ENGINE_LOCAL_LLM
-            } else {
-                BiPrefs.ENGINE_MLKIT
+            val engine = when (checkedId) {
+                localLlm.id -> BiPrefs.ENGINE_LOCAL_LLM
+                cloudLlm.id -> BiPrefs.ENGINE_CLOUD_LLM
+                else -> BiPrefs.ENGINE_MLKIT
             }
             if (engine != BiPrefs.engine(this@BiTranslationActivity)) {
                 BiPrefs.setEngine(this@BiTranslationActivity, engine)
@@ -166,8 +192,11 @@ class BiTranslationActivity : Activity() {
         root.addView(engines, wide())
         hint(getString(R.string.blk_engine_hint))
 
-        if (BiPrefs.engine(this) == BiPrefs.ENGINE_LOCAL_LLM) {
+        val engine = BiPrefs.engine(this)
+        if (engine == BiPrefs.ENGINE_LOCAL_LLM) {
             renderLocalLlmManagement()
+        } else if (engine == BiPrefs.ENGINE_CLOUD_LLM) {
+            renderCloudLlmManagement()
         } else {
             val unmetered = CheckBox(this).apply {
                 text = getString(R.string.blk_unmetered_only)
@@ -179,15 +208,31 @@ class BiTranslationActivity : Activity() {
             root.addView(unmetered, wide())
         }
 
+        val translateBox = CheckBox(this).apply {
+            text = getString(R.string.blk_translate_box)
+            isChecked = BiPrefs.translateBox(this@BiTranslationActivity)
+            setOnCheckedChangeListener { _, checked ->
+                BiPrefs.setTranslateBox(this@BiTranslationActivity, checked)
+            }
+        }
+        root.addView(translateBox, wide())
+        hint(getString(R.string.blk_translate_box_hint))
+
         val livePreview = CheckBox(this).apply {
             text = getString(R.string.blk_live_preview)
-            isChecked = BiPrefs.livePreview(this@BiTranslationActivity)
+            isChecked = BiPrefs.livePreviewActive(this@BiTranslationActivity)
+            isEnabled = engine != BiPrefs.ENGINE_CLOUD_LLM
             setOnCheckedChangeListener { _, checked ->
                 BiPrefs.setLivePreview(this@BiTranslationActivity, checked)
             }
         }
         root.addView(livePreview, wide())
-        hint(getString(R.string.blk_live_preview_hint))
+        hint(
+            getString(
+                if (engine == BiPrefs.ENGINE_CLOUD_LLM) R.string.blk_live_preview_cloud_off
+                else R.string.blk_live_preview_hint
+            )
+        )
 
         val incognito = CheckBox(this).apply {
             text = getString(R.string.blk_allow_incognito)
@@ -199,7 +244,7 @@ class BiTranslationActivity : Activity() {
         root.addView(incognito, wide())
         hint(getString(R.string.blk_allow_incognito_hint))
 
-        if (BiPrefs.engine(this) == BiPrefs.ENGINE_LOCAL_LLM) {
+        if (engine != BiPrefs.ENGINE_MLKIT) {
             return
         }
 
@@ -213,38 +258,189 @@ class BiTranslationActivity : Activity() {
         loadModelList(listHolder)
     }
 
+    /**
+     * The GGUF files the keyboard has been pointed at, one active. Adding one only records the file and
+     * takes read access; switching is a tap, and the model process loads the new one on next use.
+     */
     private fun renderLocalLlmManagement() {
         heading(getString(R.string.blk_local_model_heading))
         hint(getString(R.string.blk_local_model_description))
-        val installed = LocalLlmModelStore.isInstalled(this)
-        body(
-            if (installed) getString(R.string.blk_local_model_ready)
-            else getString(R.string.blk_local_model_missing)
-        )
-        val action = Button(this).apply {
-            text = getString(
-                if (installed) R.string.blk_local_model_replace else R.string.blk_local_model_import
-            )
-            isEnabled = !busy
-            setOnClickListener { openLocalModelPicker() }
-        }
-        root.addView(action, wide())
-        if (installed) {
-            val delete = Button(this).apply {
-                text = getString(R.string.blk_local_model_delete)
-                isEnabled = !busy
+        val models = LocalLlmModelStore.models(this)
+        val active = LocalLlmModelStore.active(this)
+        if (models.isEmpty()) body(getString(R.string.blk_local_model_missing))
+
+        val group = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+        models.forEach { model ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val radio = RadioButton(this).apply {
+                id = View.generateViewId()
+                text = model.label + "\n" + modelDetails(model)
+                isChecked = model.path == active?.path
                 setOnClickListener {
+                    if (model.path == LocalLlmModelStore.active(this@BiTranslationActivity)?.path) return@setOnClickListener
+                    LocalLlmModelStore.setActive(this@BiTranslationActivity, model)
                     LocalLlmService.requestUnload(this@BiTranslationActivity)
-                    val deleted = LocalLlmModelStore.delete(this@BiTranslationActivity)
-                    Toast.makeText(
-                        this@BiTranslationActivity,
-                        if (deleted) R.string.blk_local_model_deleted else R.string.blk_delete_failed,
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    BiLog.i("active local model changed")
                     render()
                 }
             }
-            root.addView(delete, wide())
+            val remove = Button(this).apply {
+                text = getString(R.string.blk_local_model_remove)
+                isEnabled = !busy
+                setOnClickListener {
+                    if (model.path == LocalLlmModelStore.active(this@BiTranslationActivity)?.path) {
+                        LocalLlmService.requestUnload(this@BiTranslationActivity)
+                    }
+                    LocalLlmModelStore.remove(this@BiTranslationActivity, model)
+                    Toast.makeText(this@BiTranslationActivity, R.string.blk_local_model_removed, Toast.LENGTH_SHORT).show()
+                    render()
+                }
+            }
+            row.addView(radio, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(remove)
+            group.addView(row, wide())
+        }
+        root.addView(group, wide())
+
+        root.addView(Button(this).apply {
+            text = getString(R.string.blk_local_model_add)
+            isEnabled = !busy
+            setOnClickListener { openLocalModelPicker() }
+        }, wide())
+    }
+
+    private fun modelDetails(model: LocalLlmModelStore.Model): String {
+        val parts = mutableListOf<String>()
+        if (model.modelName != null && model.modelName != model.fileName) parts += model.fileName
+        model.architecture?.let { parts += it }
+        if (model.bytes > 0) parts += "%.1f GB".format(model.bytes / 1e9)
+        parts += getString(if (model.chat) R.string.blk_local_kind_chat else R.string.blk_local_kind_raw)
+        return parts.joinToString(" · ")
+    }
+
+    /**
+     * Provider, base URL, model and key. The key field is never filled back in: once saved, the key is
+     * only identified by its last four characters, and an empty field on save keeps it.
+     */
+    private fun renderCloudLlmManagement() {
+        heading(getString(R.string.blk_cloud_heading))
+        body(getString(R.string.blk_cloud_warning))
+
+        val saved = BiPrefs.cloudConfig(this)
+        hint(getString(R.string.blk_cloud_provider))
+        val providers = CloudProvider.entries
+        val providerSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@BiTranslationActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                providers.map { it.label },
+            )
+            setSelection(providers.indexOf(saved.provider))
+        }
+        root.addView(providerSpinner, wide())
+
+        hint(getString(R.string.blk_cloud_base_url))
+        val baseUrl = EditText(this).apply {
+            setText(saved.baseUrl)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            isSingleLine = true
+        }
+        root.addView(baseUrl, wide())
+
+        hint(getString(R.string.blk_cloud_model))
+        val model = EditText(this).apply {
+            setText(saved.model)
+            hint = getString(R.string.blk_cloud_model_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            isSingleLine = true
+        }
+        root.addView(model, wide())
+
+        // Switching preset replaces URL and model with its defaults; the restored selection on first
+        // layout must not clobber what the user saved.
+        var currentProvider = saved.provider
+        providerSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val picked = providers[position]
+                if (picked == currentProvider) return
+                currentProvider = picked
+                baseUrl.setText(picked.defaultBaseUrl)
+                model.setText(picked.defaultModel)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+
+        hint(getString(R.string.blk_cloud_api_key))
+        val keyHint = ApiKeyStore.hint(this)
+        val apiKey = EditText(this).apply {
+            hint = keyHint?.let { getString(R.string.blk_cloud_api_key_hint_saved, it) }
+                ?: getString(R.string.blk_cloud_api_key_hint_empty)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true
+        }
+        root.addView(apiKey, wide())
+        hint(getString(R.string.blk_cloud_key_note))
+
+        fun save() {
+            BiPrefs.setCloudConfig(
+                this,
+                CloudConfig(currentProvider, baseUrl.text.toString(), model.text.toString()),
+            )
+            apiKey.text.toString().trim().takeIf { it.isNotEmpty() }?.let { ApiKeyStore.set(this, it) }
+        }
+
+        root.addView(Button(this).apply {
+            text = getString(R.string.blk_cloud_save)
+            setOnClickListener {
+                save()
+                Toast.makeText(this@BiTranslationActivity, R.string.blk_cloud_saved, Toast.LENGTH_SHORT).show()
+                render()
+            }
+        }, wide())
+
+        root.addView(Button(this).apply {
+            text = getString(R.string.blk_cloud_test)
+            isEnabled = !busy
+            setOnClickListener {
+                save()
+                testCloudProvider()
+            }
+        }, wide())
+
+        if (keyHint != null) {
+            root.addView(Button(this).apply {
+                text = getString(R.string.blk_cloud_remove_key)
+                setOnClickListener {
+                    ApiKeyStore.clear(this@BiTranslationActivity)
+                    Toast.makeText(this@BiTranslationActivity, R.string.blk_cloud_key_removed, Toast.LENGTH_SHORT).show()
+                    render()
+                }
+            }, wide())
+        }
+    }
+
+    /** Sends a fixed sample, never anything the user typed, so the test itself discloses nothing. */
+    private fun testCloudProvider() {
+        busy = true
+        render()
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                CloudLlmEngine(this@BiTranslationActivity).translate("Good morning", "en", "fr")
+            }
+            busy = false
+            Toast.makeText(
+                this@BiTranslationActivity,
+                result.fold(
+                    { getString(R.string.blk_cloud_test_ok, it) },
+                    { getString(R.string.blk_cloud_test_failed, it.message ?: it.javaClass.simpleName) },
+                ),
+                Toast.LENGTH_LONG,
+            ).show()
+            render()
         }
     }
 
@@ -252,7 +448,8 @@ class BiTranslationActivity : Activity() {
     private fun openLocalModelPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/octet-stream"
+            type = "*/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         }
         startActivityForResult(intent, REQUEST_LOCAL_MODEL)
     }
@@ -263,20 +460,13 @@ class BiTranslationActivity : Activity() {
         if (requestCode != REQUEST_LOCAL_MODEL || resultCode != RESULT_OK) return
         val uri = data?.data ?: return
         busy = true
-        Toast.makeText(this, R.string.blk_local_model_importing, Toast.LENGTH_LONG).show()
         render()
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                LocalLlmModelStore.import(this@BiTranslationActivity, uri)
-            }
+            val result = withContext(Dispatchers.IO) { LocalLlmModelStore.add(this@BiTranslationActivity, uri) }
             busy = false
             result.onSuccess {
                 LocalLlmService.requestUnload(this@BiTranslationActivity)
-                Toast.makeText(
-                    this@BiTranslationActivity,
-                    R.string.blk_local_model_imported,
-                    Toast.LENGTH_LONG,
-                ).show()
+                Toast.makeText(this@BiTranslationActivity, getString(R.string.blk_local_model_added, it.label), Toast.LENGTH_LONG).show()
             }.onFailure { error ->
                 Toast.makeText(
                     this@BiTranslationActivity,

@@ -3,6 +3,9 @@ package helium314.keyboard.bilanguage
 
 import android.content.Context
 import androidx.core.content.edit
+import helium314.keyboard.bilanguage.cloud.CloudConfig
+import helium314.keyboard.bilanguage.cloud.CloudProvider
+import helium314.keyboard.bilanguage.cloud.Register
 import helium314.keyboard.latin.utils.prefs
 
 /**
@@ -17,6 +20,8 @@ object BiPrefs {
     const val PREF_ENGINE = "blk_engine"
     const val ENGINE_MLKIT = "mlkit"
     const val ENGINE_LOCAL_LLM = "local-llm"
+    /** The only engine that sends text off the device. Never the default. */
+    const val ENGINE_CLOUD_LLM = "cloud-llm"
     const val ENGINE_STUB = "stub"
     const val DEFAULT_ENGINE = ENGINE_MLKIT
 
@@ -89,4 +94,56 @@ object BiPrefs {
 
     fun setLivePreview(context: Context, value: Boolean) =
         context.prefs().edit { putBoolean(PREF_LIVE_PREVIEW, value) }
+
+    /**
+     * Whether live preview should actually run. Never with the cloud engine: preview translates
+     * partial drafts on every pause, and sending drafts the user never asked to translate to a
+     * provider is not acceptable whatever the setting says.
+     */
+    fun livePreviewActive(context: Context): Boolean =
+        livePreview(context) && engine(context) != ENGINE_CLOUD_LLM
+
+    /** Casual (tu) or polite (vous) French, for the cloud engine. */
+    const val PREF_REGISTER = "blk_register"
+
+    fun register(context: Context): Register = Register.fromId(context.prefs().getString(PREF_REGISTER, null))
+
+    fun setRegister(context: Context, register: Register) =
+        context.prefs().edit { putString(PREF_REGISTER, register.id) }
+
+    /**
+     * The translate key opens [TranslateBox] (type in a box, the translation appears in the app as
+     * you type) instead of translating the field once. Default on.
+     */
+    const val PREF_TRANSLATE_BOX = "blk_translate_box"
+
+    fun translateBox(context: Context): Boolean =
+        context.prefs().getBoolean(PREF_TRANSLATE_BOX, true)
+
+    fun setTranslateBox(context: Context, value: Boolean) =
+        context.prefs().edit { putBoolean(PREF_TRANSLATE_BOX, value) }
+
+    /**
+     * Cloud LLM provider settings. The API key is deliberately not here: it is stored encrypted by
+     * [helium314.keyboard.bilanguage.cloud.ApiKeyStore].
+     */
+    const val PREF_CLOUD_PROVIDER = "blk_cloud_provider"
+    const val PREF_CLOUD_BASE_URL = "blk_cloud_base_url"
+    const val PREF_CLOUD_MODEL = "blk_cloud_model"
+
+    fun cloudConfig(context: Context): CloudConfig {
+        val prefs = context.prefs()
+        val provider = CloudProvider.fromId(prefs.getString(PREF_CLOUD_PROVIDER, null))
+        return CloudConfig(
+            provider = provider,
+            baseUrl = prefs.getString(PREF_CLOUD_BASE_URL, null) ?: provider.defaultBaseUrl,
+            model = prefs.getString(PREF_CLOUD_MODEL, null) ?: provider.defaultModel,
+        )
+    }
+
+    fun setCloudConfig(context: Context, config: CloudConfig) = context.prefs().edit {
+        putString(PREF_CLOUD_PROVIDER, config.provider.id)
+        putString(PREF_CLOUD_BASE_URL, config.baseUrl.trim())
+        putString(PREF_CLOUD_MODEL, config.model.trim())
+    }
 }
